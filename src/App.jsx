@@ -49,7 +49,8 @@ async function registerFamily(name, pin, setOnline) {
     }
     await sbFetch("families", { method: "POST", prefer: "return=minimal", body: JSON.stringify({ name, pin, created_at: new Date().toISOString() }) });
     return { ok: true };
-  }, { ok: true }, setOnline);
+  }, { ok: false, error: "שגיאת תקשורת" }, setOnline);
+}
 
 async function saveQuizRoom(code, topic, questionsData, familyName, familyPct, setOnline) {
   return sbSafe(() => sbFetch("quiz_rooms", {
@@ -93,24 +94,27 @@ async function getMonthlyBoard(setOnline) {
   }, [], setOnline);
 }
 
-async function upsertScore(familyName, pct) {
+async function upsertScore(familyName, pct, setOnline) {
   return sbSafe(async () => {
     const ex = await sbFetch(`family_scores?family_name=eq.${encodeURIComponent(familyName)}&select=*`);
+    const today = todayStr();
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
     if (ex && ex.length > 0) {
       const r = ex[0];
-      const streak = r.last_played === yesterday ? r.streak + 1 : 1;
+      let streak = r.streak;
+      if (r.last_played === yesterday) streak += 1;
+      else if (r.last_played !== today) streak = 1;
       await sbFetch(`family_scores?family_name=eq.${encodeURIComponent(familyName)}`, {
         method: "PATCH", prefer: "return=minimal",
-        body: JSON.stringify({ weekly_points: r.weekly_points + pct, total_games: r.total_games + 1, streak, last_played: todayStr() }),
+        body: JSON.stringify({ weekly_points: r.weekly_points + pct, total_games: r.total_games + 1, streak, last_played: today }),
       });
     } else {
       await sbFetch("family_scores", {
         method: "POST", prefer: "return=minimal",
-        body: JSON.stringify({ family_name: familyName, weekly_points: pct, total_games: 1, streak: 1, last_played: todayStr() }),
+        body: JSON.stringify({ family_name: familyName, weekly_points: pct, total_games: 1, streak: 1, last_played: today }),
       });
     }
-  });
+  }, null, setOnline);
 }
 
 // ─── WIKIPEDIA ────────────────────────────────────────────────────────────────
@@ -157,7 +161,9 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     }),
   });
   const data = await res.json();
-  const raw = (data.content?.[0]?.text || "").replace(/```json|```/g, "").trim();
+  const tick3 = String.fromCharCode(96,96,96);
+  const raw = (data.content?.[0]?.text || "")
+    .replace(tick3 + "json", "").replace(tick3, "").trim();
   const start = raw.indexOf("{");
   if (start === -1) throw new Error("תשובה ריקה מה-AI");
   let text = raw.slice(start);
