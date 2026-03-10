@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-// פונקציית עזר לפענוח JSON
+// פונקציית עזר לפענוח ה-JSON של השאלות
 const smartParse = (str) => {
   if (!str) return [];
   let clean = str.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "");
@@ -17,14 +17,13 @@ const smartParse = (str) => {
 };
 
 export default function App() {
-  const [screen, setScreen] = useState("home");
   const [loading, setLoading] = useState(false);
-  const [topic, setTopic] = useState("");
   const [quizData, setQuizData] = useState(null);
-  const [family] = useState({ name: "מייסון", members: [{name: "אבא", age: 40}, {name: "ילד", age: 8}] });
+  const [topic, setTopic] = useState("");
+  const family = { members: [{name: "אבא", age: 40}, {name: "ילד", age: 8}] }; // דוגמה
 
   const handleStartQuiz = async () => {
-    if (!topic) return alert("אנא הזן נושא");
+    if (!topic) return alert("נא להזין נושא");
     setLoading(true);
     try {
       const res = await fetch("/api/claude", {
@@ -33,47 +32,51 @@ export default function App() {
         body: JSON.stringify({ topic, members: family.members })
       });
 
-      if (res.status === 404) {
-        throw new Error("השרת (API) לא נמצא! ודא שקובץ api/claude.js עלה לגיטהאב.");
+      const data = await res.json();
+
+      // הגנה: בדיקה אם השרת החזיר שגיאה
+      if (!res.ok) {
+        throw new Error(data.error || `שגיאת שרת: ${res.status}`);
       }
 
-      const data = await res.json();
+      // הגנה: בדיקה אם המבנה של קלוד תקין
+      if (!data.content || !data.content[0]) {
+        throw new Error("ה-AI החזיר תשובה ריקה");
+      }
+
       const questions = smartParse(data.content[0].text);
-      
       setQuizData(questions);
-      setScreen("quiz");
     } catch (err) {
+      console.error(err);
       alert("שגיאה: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div style={{ textAlign: "center", color: "white", marginTop: 50 }}>🧠 יוצר חידון...</div>;
-
   return (
-    <div style={{ direction: "rtl", minHeight: "100vh", background: "#0f172a", color: "white", padding: 20 }}>
-      {screen === "home" ? (
-        <div style={{ textAlign: "center", maxWidth: 400, margin: "0 auto" }}>
-          <h1>שלום משפחת {family.name}!</h1>
-          <input 
-            style={{ width: "100%", padding: 10, borderRadius: 8, marginBottom: 10 }}
-            placeholder="נושא (למשל: חלל)" 
-            value={topic} 
-            onChange={e => setTopic(e.target.value)} 
-          />
-          <button 
-            style={{ width: "100%", padding: 15, background: "#7c3aed", border: "none", borderRadius: 8, color: "white", cursor: "pointer" }}
-            onClick={handleStartQuiz}
-          >
-            צור חידון! 🚀
-          </button>
-        </div>
-      ) : (
-        <div style={{ textAlign: "center" }}>
-          <h2>החידון מוכן!</h2>
-          {quizData?.map((q, i) => <p key={i}>{q.q}</p>)}
-          <button onClick={() => setScreen("home")}>חזור</button>
+    <div style={{ direction: "rtl", textAlign: "center", padding: 20, background: "#0f172a", color: "white", minHeight: "100vh" }}>
+      <h1>חידון משפחתי 🚀</h1>
+      <input 
+        style={{ padding: 10, borderRadius: 8, width: "80%", maxWidth: 300 }}
+        placeholder="על מה נשחק היום?" 
+        value={topic} 
+        onChange={e => setTopic(e.target.value)} 
+      />
+      <button 
+        onClick={handleStartQuiz}
+        style={{ display: "block", margin: "10px auto", padding: "10px 20px", background: "#7c3aed", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}
+      >
+        {loading ? "מייצר..." : "צור חידון"}
+      </button>
+
+      {quizData && (
+        <div style={{ marginTop: 20 }}>
+          {quizData.map((q, i) => (
+            <div key={i} style={{ background: "rgba(255,255,255,0.1)", padding: 15, borderRadius: 12, marginBottom: 10 }}>
+              <p><strong>{q.m}:</strong> {q.q}</p>
+            </div>
+          ))}
         </div>
       )}
     </div>
