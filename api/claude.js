@@ -17,9 +17,9 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-3-haiku-20240307",
-        max_tokens: 2000,
-        system: "Return ONLY a JSON array. Keys: q, o, a, m. Hebrew.",
-        messages: [{ role: "user", content: `Create a quiz about ${topic} for ${JSON.stringify(members)}` }],
+        max_tokens: 1500,
+        system: "אתה מייצר חידונים. החזר אך ורק מערך JSON. מפתחות: q (שאלה), o (אפשרויות), a (אינדקס תשובה), m (שם משתתף). עברית בלבד.",
+        messages: [{ role: "user", content: `צור חידון על ${topic} למשתתפים: ${JSON.stringify(members)}` }],
       }),
     });
 
