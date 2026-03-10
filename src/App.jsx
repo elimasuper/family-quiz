@@ -50,7 +50,6 @@ async function registerFamily(name, pin, setOnline) {
     await sbFetch("families", { method: "POST", prefer: "return=minimal", body: JSON.stringify({ name, pin, created_at: new Date().toISOString() }) });
     return { ok: true };
   }, { ok: true }, setOnline);
-}
 
 async function saveQuizRoom(code, topic, questionsData, familyName, familyPct, setOnline) {
   return sbSafe(() => sbFetch("quiz_rooms", {
@@ -94,7 +93,7 @@ async function getMonthlyBoard(setOnline) {
   }, [], setOnline);
 }
 
-async function upsertScore(familyName, pct, setOnline) {
+async function upsertScore(familyName, pct) {
   return sbSafe(async () => {
     const ex = await sbFetch(`family_scores?family_name=eq.${encodeURIComponent(familyName)}&select=*`);
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
@@ -111,7 +110,7 @@ async function upsertScore(familyName, pct, setOnline) {
         body: JSON.stringify({ family_name: familyName, weekly_points: pct, total_games: 1, streak: 1, last_played: todayStr() }),
       });
     }
-  }, null, setOnline);
+  });
 }
 
 // ─── WIKIPEDIA ────────────────────────────────────────────────────────────────
@@ -121,7 +120,6 @@ async function fetchWiki(topic) {
     const d = await r.json();
     const p = Object.values(d.query.pages)[0];
     if (p.pageid === -1 || p.missing !== undefined) {
-      // fallback: search
       const sr = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&srlimit=1&format=json&origin=*`);
       const sd = await sr.json();
       const hit = sd?.query?.search?.[0];
@@ -154,20 +152,34 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514", max_tokens: 4000,
+      model: "claude-sonnet-4-20250514", max_tokens: 8000,
       messages: [{ role: "user", content: `טקסט מויקיפדיה${wikiLang === "en" ? " (תרגם שאלות לעברית)" : ""}:\n---\n${wikiText.slice(0, 5500)}\n---\nseed: ${seed || Math.random()}\n\nצור שאלות חידון בעברית — רק על בסיס הטקסט. אל תמציא.\n\nמשתתפים:\n${desc}\n\nכללי גיל:\n${rules}\n\nלכל שאלה: emoji רלוונטי (שדה emoji).\n\nהחזר JSON בלבד (ללא backticks):\n{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}` }],
     }),
   });
   const data = await res.json();
-  return JSON.parse((data.content?.[0]?.text || "").replace(/```json|```/g, "").trim());
+  const raw = (data.content?.[0]?.text || "").replace(/```json|```/g, "").trim();
+  // Find the JSON object even if response was truncated
+  const start = raw.indexOf("{");
+  if (start === -1) throw new Error("תשובה ריקה מה-AI");
+  let text = raw.slice(start);
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Try to salvage truncated JSON by finding last complete member
+    const lastGood = text.lastIndexOf('}]}]}');
+    if (lastGood !== -1) return JSON.parse(text.slice(0, lastGood + 5));
+    const lastGood2 = text.lastIndexOf('}]},');
+    if (lastGood2 !== -1) return JSON.parse(text.slice(0, lastGood2 + 4).replace(/,$/, '') + ']}');
+    throw new Error("שגיאה בפענוח תשובת ה-AI — נסו שנית");
+  }
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const ag = (age) => {
   if (age <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 5,  timer: 0,  bonus: false };
-  if (age <= 8)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 10, timer: 30, bonus: false };
-  if (age <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 15, timer: 20, bonus: true  };
-  return              { label: "מתקדם",  color: "#a78bfa", emoji: "🔥", qCount: 20, timer: 15, bonus: true  };
+  if (age <= 8)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 30, bonus: false };
+  if (age <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 8,  timer: 20, bonus: true  };
+  return              { label: "מתקדם",  color: "#a78bfa", emoji: "🔥", qCount: 8,  timer: 15, bonus: true  };
 };
 
 const PRAISE = ["וואו! 🎉","מדהים! ⭐","אלוף! 🏆","נכון! 💥","כל הכבוד! 🌟","מושלם! ✨","גאון! 🧠"];
