@@ -1,13 +1,28 @@
 export default async function handler(req, res) {
-  // הגדרות CORS - קריטי למניעת חסימות
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const { messages, max_tokens } = req.body || {};
+
+  // Basic validation
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: "Missing messages" });
+  }
+
+  // Safety limits — always use Haiku, cap tokens
+  const body = {
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: Math.min(max_tokens || 3000, 3000),
+    messages,
+  };
 
   try {
-    const { topic, members } = req.body;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8s — under Vercel's 10s limit
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -16,26 +31,18 @@ export default async function handler(req, res) {
         "x-api-key": process.env.ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
-        max_tokens: 1500,
-        system: "You are a quiz generator. Return ONLY a JSON array. Keys: q (question), o (options array), a (correct index), m (member name). Use Hebrew.",
-        messages: [{ role: "user", content: `Create a family quiz about ${topic} for ${JSON.stringify(members)}` }],
-      }),
+      body: JSON.stringify(body),
+      signal: controller.signal,
     });
 
+    clearTimeout(timeout);
     const data = await response.json();
-
-    if (data.error) {
-      console.error("Anthropic Error:", data.error);
-      return res.status(500).json({ error: data.error.message });
-    }
-
-    // אנחנו שולחים אובייקט עם שדה בשם quizData
-    return res.status(200).json({ quizData: data.content[0].text });
+    return res.status(response.status).json(data);
 
   } catch (error) {
-    console.error("Server Crash:", error);
+    if (error.name === "AbortError") {
+      return res.status(504).json({ error: "timeout" });
+    }
     return res.status(500).json({ error: error.message });
   }
 }
