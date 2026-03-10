@@ -1,14 +1,6 @@
-*, *::before, *::after { box-sizing: border-box; }
-html, body, #root {
-  margin: 0; padding: 0;
-  min-height: 100%;
-  font-family: 'Varela Round', sans-serif;
-  direction: rtl;
-  background: #05050f;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-font-smoothing: antialiased;
-}
-input, button, textarea { font-family: inherit; }
-input[type=number]::-webkit-inner-spin-button { opacity: 1; }
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-thumb { background: #ffffff22; border-radius: 3px; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { direction: rtl; font-family: 'Varela Round', sans-serif; }
+@keyframes slideIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+@keyframes float { 0%{transform:translateY(0) scale(1);opacity:1} 100%{transform:translateY(-80px) scale(1.4);opacity:0} }
