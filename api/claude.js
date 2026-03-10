@@ -18,15 +18,20 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: "claude-3-haiku-20240307",
         max_tokens: 1500,
-        system: "אתה מייצר חידונים. החזר אך ורק מערך JSON. מפתחות: q (שאלה), o (אפשרויות), a (אינדקס תשובה), m (שם משתתף). עברית בלבד.",
-        messages: [{ role: "user", content: `צור חידון על ${topic} למשתתפים: ${JSON.stringify(members)}` }],
+        system: "You are a quiz generator. Return ONLY a JSON array. Keys: q (question), o (options), a (answer index 0-3), m (member name). Hebrew only.",
+        messages: [{ role: "user", content: `Create a quiz about ${topic} for ${JSON.stringify(members)}` }],
       }),
     });
 
     const data = await response.json();
-    if (data.error) return res.status(500).json({ error: data.error.message });
+    
+    // אם קלוד מחזיר שגיאה, נשלח אותה בצורה ברורה
+    if (data.error) {
+      return res.status(500).json({ error: data.error.message });
+    }
 
-    return res.status(200).json({ text: data.content[0].text });
+    // שולחים רק את הטקסט הנקי של ה-AI
+    return res.status(200).json({ quizText: data.content[0].text });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
