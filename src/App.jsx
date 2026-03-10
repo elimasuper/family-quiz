@@ -5,7 +5,6 @@ const SUPABASE_URL = "https://bqboyursgerrejqvmvhq.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxYm95dXJzZ2VycmVqcXZtdmhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNTc0NDQsImV4cCI6MjA4ODYzMzQ0NH0.OPudQau6wVdUfKzLCMCxKG5F5VlYhCL_1Sfak0V1F8o";
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
-let sbOnline = true;
 const sbFetch = async (path, opts = {}) => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
@@ -21,9 +20,9 @@ const sbFetch = async (path, opts = {}) => {
   const t = await res.text();
   return t ? JSON.parse(t) : null;
 };
-const sbSafe = async (fn, fallback = null) => {
-  try { const r = await fn(); sbOnline = true; return r; }
-  catch { sbOnline = false; return fallback; }
+const sbSafe = async (fn, fallback = null, setOnline) => {
+  try { const r = await fn(); if (setOnline) setOnline(true); return r; }
+  catch (e) { console.error("Supabase error:", e); if (setOnline) setOnline(false); return fallback; }
 };
 
 // ─── LOCAL STORAGE ────────────────────────────────────────────────────────────
@@ -42,7 +41,7 @@ const clearFamily = () => LS.del(FAMILY_KEY);
 const makeCode = () => String(Math.floor(1000 + Math.random() * 9000));
 const todayStr = () => new Date().toISOString().split("T")[0];
 
-async function registerFamily(name, pin) {
+async function registerFamily(name, pin, setOnline) {
   return sbSafe(async () => {
     const ex = await sbFetch(`families?name=eq.${encodeURIComponent(name)}&select=name,pin`);
     if (ex && ex.length > 0) {
@@ -50,52 +49,52 @@ async function registerFamily(name, pin) {
     }
     await sbFetch("families", { method: "POST", prefer: "return=minimal", body: JSON.stringify({ name, pin, created_at: new Date().toISOString() }) });
     return { ok: true };
-  }, { ok: true }); // offline: allow anyway
+  }, { ok: true }, setOnline); // offline: allow anyway
 }
 
-async function saveQuizRoom(code, topic, questionsData, familyName, familyPct) {
+async function saveQuizRoom(code, topic, questionsData, familyName, familyPct, setOnline) {
   return sbSafe(() => sbFetch("quiz_rooms", {
     method: "POST", prefer: "return=minimal",
     body: JSON.stringify({ code, topic, questions: questionsData, creator_family: familyName, creator_pct: familyPct, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }),
-  }));
+  }), null, setOnline);
 }
 
-async function loadQuizByCode(code) {
+async function loadQuizByCode(code, setOnline) {
   return sbSafe(async () => {
     const r = await sbFetch(`quiz_rooms?code=eq.${code}&select=*`);
     return r && r.length > 0 ? r[0] : null;
-  });
+  }, null, setOnline);
 }
 
-async function saveChallenge(code, familyName, familyPct) {
+async function saveChallenge(code, familyName, familyPct, setOnline) {
   return sbSafe(() => sbFetch("quiz_challenges", {
     method: "POST", prefer: "return=minimal",
     body: JSON.stringify({ code, family_name: familyName, family_pct: familyPct, played_at: new Date().toISOString() }),
-  }));
+  }), null, setOnline);
 }
 
-async function getChallenges(code) {
+async function getChallenges(code, setOnline) {
   return sbSafe(async () => {
     const r = await sbFetch(`quiz_challenges?code=eq.${code}&select=family_name,family_pct&order=family_pct.desc&limit=20`);
     return r || [];
-  }, []);
+  }, [], setOnline);
 }
 
-async function hasPlayedQuiz(code, familyName) {
+async function hasPlayedQuiz(code, familyName, setOnline) {
   return sbSafe(async () => {
     const r = await sbFetch(`quiz_challenges?code=eq.${code}&family_name=eq.${encodeURIComponent(familyName)}&select=id&limit=1`);
     return r && r.length > 0;
-  }, false); // offline: allow play
+  }, false, setOnline); // offline: allow play
 }
 
-async function getMonthlyBoard() {
+async function getMonthlyBoard(setOnline) {
   return sbSafe(async () => {
     const r = await sbFetch(`family_scores?select=family_name,monthly_points,streak&order=monthly_points.desc&limit=10`);
     return r || [];
-  }, []);
+  }, [], setOnline);
 }
 
-async function upsertScore(familyName, pct) {
+async function upsertScore(familyName, pct, setOnline) {
   return sbSafe(async () => {
     const ex = await sbFetch(`family_scores?family_name=eq.${encodeURIComponent(familyName)}&select=*`);
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
@@ -112,7 +111,7 @@ async function upsertScore(familyName, pct) {
         body: JSON.stringify({ family_name: familyName, monthly_points: pct, total_games: 1, streak: 1, last_played: todayStr() }),
       });
     }
-  });
+  }, null, setOnline);
 }
 
 // ─── WIKIPEDIA ────────────────────────────────────────────────────────────────
@@ -376,12 +375,12 @@ function WelcomeScreen({ onDone }) {
 }
 
 // ─── SCREEN: HOME ─────────────────────────────────────────────────────────────
-function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout }) {
+function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnline }) {
   const [code, setCode] = useState("");
   const [tab, setTab] = useState("play");
   const [monthly, setMonthly] = useState([]);
 
-  useEffect(() => { getMonthlyBoard().then(d => setMonthly(d || [])); }, []);
+  useEffect(() => { getMonthlyBoard(onSetOnline).then(d => setMonthly(d || [])); }, []);
 
   // detect code from URL
   useEffect(() => {
@@ -665,7 +664,7 @@ function ShareScreen({ code, topic, familyName, pct, onContinue }) {
 }
 
 // ─── SCREEN: RESULTS ─────────────────────────────────────────────────────────
-function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, onHome, onSameTopic }) {
+function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, onHome, onSameTopic, onSetOnline }) {
   const [board, setBoard] = useState([]);
   const [monthly, setMonthly] = useState([]);
   const [tab, setTab] = useState("challenge");
@@ -674,8 +673,8 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   const msg = pct>=85?"🏆 משפחת אלופים!":pct>=65?"🌟 כל הכבוד!":"💪 ניסיון מצוין!";
 
   useEffect(() => {
-    if (code) getChallenges(code).then(d => setBoard(d||[]));
-    getMonthlyBoard().then(d => setMonthly(d||[]));
+    if (code) getChallenges(code, onSetOnline).then(d => setBoard(d||[]));
+    getMonthlyBoard(onSetOnline).then(d => setMonthly(d||[]));
   }, [code]);
 
   const myRank = board.findIndex(r => r.family_name===familyName) + 1;
@@ -754,6 +753,7 @@ export default function App() {
   const [loadMsg, setLoadMsg]     = useState(LOAD_MSGS[0]);
   const [error, setError]         = useState("");
   const [blockedTopic, setBlockedTopic] = useState("");
+  const [sbOnline, setSbOnline]   = useState(true);
 
   // boot: check localStorage
   useEffect(() => {
@@ -783,11 +783,11 @@ export default function App() {
   const handleJoin = async (c) => {
     const stop = startLoad();
     try {
-      const room = await loadQuizByCode(c);
+      const room = await loadQuizByCode(c, setSbOnline);
       if (!room) { stop(); setError(`לא נמצא חידון עם קוד ${c}`); setScreen("home"); return; }
 
       // check if already played this exact quiz
-      const played = await hasPlayedQuiz(c, family.name);
+      const played = await hasPlayedQuiz(c, family.name, setSbOnline);
       if (played) {
         stop();
         setTopic(room.topic);
@@ -806,15 +806,15 @@ export default function App() {
     setScores(s);
     const pct = fp(family.members, s);
     if (isChallenger) {
-      await saveChallenge(code, family.name, pct);
-      await upsertScore(family.name, pct);
+      await saveChallenge(code, family.name, pct, setSbOnline);
+      await upsertScore(family.name, pct, setSbOnline);
       setScreen("results");
     } else {
       const newCode = makeCode();
       setCode(newCode);
-      await saveQuizRoom(newCode, topic, quizData, family.name, pct);
-      await saveChallenge(newCode, family.name, pct);
-      await upsertScore(family.name, pct);
+      await saveQuizRoom(newCode, topic, quizData, family.name, pct, setSbOnline);
+      await saveChallenge(newCode, family.name, pct, setSbOnline);
+      await upsertScore(family.name, pct, setSbOnline);
       setScreen("share");
     }
   };
@@ -867,7 +867,7 @@ export default function App() {
 
         <div style={{ width:"100%", maxWidth:640 }}>
           {screen==="welcome"      && <WelcomeScreen onDone={handleWelcomeDone} />}
-          {screen==="home"         && family && <HomeScreen family={family} onPlay={handlePlay} onJoin={handleJoin} onEditFamily={()=>setScreen("editFamily")} onLogout={handleLogout} />}
+          {screen==="home"         && family && <HomeScreen family={family} onPlay={handlePlay} onJoin={handleJoin} onEditFamily={()=>setScreen("editFamily")} onLogout={handleLogout} onSetOnline={setSbOnline} />}
           {screen==="editFamily"   && family && <EditFamilyScreen family={family} onSave={handleEditSave} onBack={()=>setScreen("home")} />}
           {screen==="loading"      && <LoadingScreen msg={loadMsg} emoji={te(topic)||"📖"} />}
           {screen==="alreadyPlayed"&& (
@@ -886,7 +886,7 @@ export default function App() {
           )}
           {screen==="quiz"         && quizData && family && <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />}
           {screen==="share"        && <ShareScreen code={code} topic={topic} familyName={family?.name} pct={pct} onContinue={()=>setScreen("results")} />}
-          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} onHome={()=>setScreen("home")} onSameTopic={handleSameTopic} />}
+          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} onHome={()=>setScreen("home")} onSameTopic={handleSameTopic} onSetOnline={setSbOnline} />}
         </div>
       </div>
 
