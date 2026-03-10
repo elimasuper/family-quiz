@@ -171,25 +171,20 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
   const data = await res.json();
   if (data.error) throw new Error("שגיאת API: " + (data.error.message || JSON.stringify(data.error)));
   const raw = (data.content?.[0]?.text || "").trim();
+  console.log("AI raw response:", raw.slice(0, 200));
   if (!raw) throw new Error("תשובה ריקה — בדוק ANTHROPIC_API_KEY ב-Vercel");
-  const start = raw.indexOf("{");
-  if (start === -1) throw new Error("תגובת AI לא תקינה: " + raw.slice(0, 80));
-  let text = raw.slice(start);
 
-  // Try direct parse first
+  // Extract JSON from response (handle markdown code blocks too)
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("תגובת AI לא תקינה: " + raw.slice(0, 100));
+  const text = jsonMatch[0];
+
+  // Try direct parse
   try { return JSON.parse(text); } catch {}
 
-  // Try to fix truncated JSON - find last complete member block
-  const p1 = '}]}]}', p2 = '}]},', p3 = '}]}';
-  for (const pat of [p1, p2, p3]) {
-    const idx = text.lastIndexOf(pat);
-    if (idx !== -1) {
-      let candidate = text.slice(0, idx + pat.length);
-      if (pat === p2) candidate = candidate.replace(/,$/, '') + ']}';
-      if (pat === p3) candidate = candidate + ']}';
-      try { return JSON.parse(candidate); } catch {}
-    }
-  }
+  // Fix trailing commas and try again
+  try { return JSON.parse(text.replace(/,\s*([\]\}])/g, '$1')); } catch {}
+
   throw new Error("שגיאה בפענוח תשובת ה-AI — נסו שנית");
 }
 
