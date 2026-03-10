@@ -166,14 +166,13 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
   try { return JSON.parse(text); } catch {}
 
   // Try to fix truncated JSON - find last complete member block
-  const patterns = ['}]}]}', '}]},', '}]}'];
-  for (const pat of patterns) {
+  const p1 = '}]}]}', p2 = '}]},', p3 = '}]}';
+  for (const pat of [p1, p2, p3]) {
     const idx = text.lastIndexOf(pat);
     if (idx !== -1) {
       let candidate = text.slice(0, idx + pat.length);
-      // Close open structures
-      if (pat === '}]},') candidate = candidate.replace(/,$/, '') + ']}';
-      if (pat === '}]}') candidate = candidate + ']}';
+      if (pat === p2) candidate = candidate.replace(/,$/, '') + ']}';
+      if (pat === p3) candidate = candidate + ']}';
       try { return JSON.parse(candidate); } catch {}
     }
   }
