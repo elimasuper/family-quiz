@@ -9,21 +9,22 @@ const generateQuestions = async (topic, members) => {
   try {
     const res = await fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json" }, // קריטי כדי שה-API לא יקרוס
-      body: JSON.stringify({ topic, members }) // שליחה בדיוק כפי שה-API מצפה
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic, members }) // שליחה בפורמט שה-API החדש מצפה לו
     });
 
     if (!res.ok) {
+      // אם השרת החזיר שגיאה, נבדוק מה הוא כתב שם
       const errorText = await res.text();
-      console.error("Server Error:", errorText);
-      throw new Error("השרת החזיר שגיאה. בדוק את ה-Logs ב-Vercel.");
+      console.error("שגיאת שרת:", errorText);
+      throw new Error(`השרת החזיר שגיאה: ${res.status}. בדוק את ה-Logs ב-Vercel.`);
     }
 
     const data = await res.json();
     
     // שליפת הטקסט מהמבנה של Anthropic
     if (!data.content || !data.content[0]) {
-      throw new Error("ה-AI לא החזיר תוכן תקין");
+      throw new Error("ה-AI לא החזיר תוכן תקין. ייתכן שנגמרו הטוקנים בחשבון?");
     }
     
     const rawContent = data.content[0].text;
@@ -36,11 +37,12 @@ const generateQuestions = async (topic, members) => {
 
 const smartParse = (str) => {
   if (!str) return [];
+  // ניקוי תגיות קוד אם ה-AI הוסיף אותן
   let clean = str.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "");
   try {
     return JSON.parse(clean);
   } catch (e) {
-    // ניסיון תיקון קטיעה
+    console.warn("JSON נקטע, מנסה לתקן...");
     const lastBrace = clean.lastIndexOf('}');
     if (lastBrace !== -1) {
       let repaired = clean.substring(0, lastBrace + 1);
@@ -51,7 +53,6 @@ const smartParse = (str) => {
     return [];
   }
 };
-
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState("welcome");
