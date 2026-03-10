@@ -195,6 +195,7 @@ const TMAP   = { "דינוזאורים":"🦕","חלל":"🚀","אריות":"�
 const te     = (t) => { for (const [k,v] of Object.entries(TMAP)) if (t?.includes(k)) return v; return "🌟"; };
 const fp     = (members, scores) => Math.round(members.reduce((s,m) => { const sc = scores[m.name]; return s + (sc?.total ? (sc.correct / sc.total) * 100 : 0); }, 0) / members.length);
 
+const LOAD_MSGS = ["🔍 מחפש בויקיפדיה...","📖 קורא את המאמר...","🧠 יוצר שאלות...","✨ מותאם לכל גיל...","🎮 כמעט מוכן!"];
 // ─── SHARED STYLES ────────────────────────────────────────────────────────────
 const C = {
   card: { background: "rgba(255,255,255,0.055)", backdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 22, padding: "18px", marginBottom: 14 },
@@ -751,9 +752,6 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
     </div>
   );
 }
-
-// ─── MAIN ─────────────────────────────────────────────────────────────────────
-const LOAD_MSGS = ["🔍 מחפש בויקיפדיה...","📖 קורא את המאמר...","🧠 יוצר שאלות...","✨ מותאם לכל גיל...","🎮 כמעט מוכן!"];
 
 export default function App() {
   const [family, setFamily]       = useState(null);        // loaded from LS on boot
