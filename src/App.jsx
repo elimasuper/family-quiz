@@ -153,25 +153,31 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514", max_tokens: 8000,
-      messages: [{ role: "user", content: `טקסט מויקיפדיה${wikiLang === "en" ? " (תרגם שאלות לעברית)" : ""}:\n---\n${wikiText.slice(0, 5500)}\n---\nseed: ${seed || Math.random()}\n\nצור שאלות חידון בעברית — רק על בסיס הטקסט. אל תמציא.\n\nמשתתפים:\n${desc}\n\nכללי גיל:\n${rules}\n\nלכל שאלה: emoji רלוונטי (שדה emoji).\n\nהחזר JSON בלבד (ללא backticks):\n{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}` }],
+      messages: [{ role: "user", content: `טקסט מויקיפדיה${wikiLang === "en" ? " (תרגם שאלות לעברית)" : ""}:\n---\n${wikiText.slice(0, 5500)}\n---\nseed: ${seed || Math.random()}\n\nצור שאלות חידון בעברית — רק על בסיס הטקסט. אל תמציא.\n\nמשתתפים:\n${desc}\n\nכללי גיל:\n${rules}\n\nלכל שאלה: emoji רלוונטי (שדה emoji).\n\nחשוב מאוד: החזר JSON תקין ושלם בלבד (ללא backticks). וודא שה-JSON נסגר כראוי עם כל הסוגריים.\n{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}` }],
     }),
   });
   const data = await res.json();
   const raw = (data.content?.[0]?.text || "").replace(/```json|```/g, "").trim();
-  // Find the JSON object even if response was truncated
   const start = raw.indexOf("{");
   if (start === -1) throw new Error("תשובה ריקה מה-AI");
   let text = raw.slice(start);
-  try {
-    return JSON.parse(text);
-  } catch {
-    // Try to salvage truncated JSON by finding last complete member
-    const lastGood = text.lastIndexOf('}]}]}');
-    if (lastGood !== -1) return JSON.parse(text.slice(0, lastGood + 5));
-    const lastGood2 = text.lastIndexOf('}]},');
-    if (lastGood2 !== -1) return JSON.parse(text.slice(0, lastGood2 + 4).replace(/,$/, '') + ']}');
-    throw new Error("שגיאה בפענוח תשובת ה-AI — נסו שנית");
+
+  // Try direct parse first
+  try { return JSON.parse(text); } catch {}
+
+  // Try to fix truncated JSON - find last complete member block
+  const patterns = ['}]}]}', '}]},', '}]}'];
+  for (const pat of patterns) {
+    const idx = text.lastIndexOf(pat);
+    if (idx !== -1) {
+      let candidate = text.slice(0, idx + pat.length);
+      // Close open structures
+      if (pat === '}]},') candidate = candidate.replace(/,$/, '') + ']}';
+      if (pat === '}]}') candidate = candidate + ']}';
+      try { return JSON.parse(candidate); } catch {}
+    }
   }
+  throw new Error("שגיאה בפענוח תשובת ה-AI — נסו שנית");
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
