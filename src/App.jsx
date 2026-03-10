@@ -151,7 +151,7 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     return             `${m.name} (גיל ${m.age}): שאלות מאתגרות עם פרטים ספציפיים מהטקסט.`;
   }).join("\n");
   const example = '{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}';
-  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים: 1. שאלות בעברית רק מהטקסט. 2. אל תחזור על אותה שאלה פעמיים. 3. לכל שאלה emoji. 4. החזר JSON בלבד:\n" + example;
+  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים: 1. שאלות בעברית רק מהטקסט. 2. אל תחזור על אותה שאלה. 3. לכל שאלה emoji. 4. וודא שה-correct_index נכון עובדתית. 5. החזר JSON בלבד:\n" + example;
   const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -177,9 +177,9 @@ const rnd    = (a) => a[Math.floor(Math.random() * a.length)];
 const TMAP   = { "דינוזאורים":"🦕","חלל":"🚀","אריות":"🦁","דולפינים":"🐬","מצרים":"🏛️","ים":"🌊","כדורגל":"⚽","מדע":"🔬","ציפורים":"🦅","הר":"🗻" };
 const te     = (t) => { for (const [k,v] of Object.entries(TMAP)) if (t?.includes(k)) return v; return "🌟"; };
 const fp     = (members, scores) => {
-  const total = members.reduce((s,m) => s + (scores[m.name]?.points||0), 0);
-  const maxPossible = members.reduce((s,m) => s + ag(m.age).qCount * (ag(m.age).timer > 0 ? 10 + ag(m.age).timer/2 : 10), 0);
-  return Math.min(100, Math.round(total / maxPossible * 100));
+  const valid = members.filter(m => scores[m.name]?.total > 0);
+  if (!valid.length) return 0;
+  return Math.round(valid.reduce((s,m) => { const sc=scores[m.name]; return s + sc.correct/sc.total*100; }, 0) / valid.length);
 };
 
 const LOAD_MSGS = ["🔍 מחפש בויקיפדיה...","📖 קורא את המאמר...","🧠 יוצר שאלות...","✨ מותאם לכל גיל...","🎮 כמעט מוכן!"];
@@ -676,7 +676,13 @@ function ShareScreen({ code, topic, familyName, pct, onContinue }) {
 }
 
 // ─── SCREEN: RESULTS ─────────────────────────────────────────────────────────
-function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, onHome, onSameTopic, onSetOnline }) {
+function ConfettiOnce() {
+  const [active, setActive] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setActive(false), 3000); return () => clearTimeout(t); }, []);
+  return <Confetti active={active} />;
+}
+
+function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, onHome, onSameTopic, onSetOnline, onShare }) {
   const [board, setBoard] = useState([]);
   const [monthly, setMonthly] = useState([]);
   const [tab, setTab] = useState("challenge");
@@ -693,7 +699,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
 
   return (
     <div style={{ animation:"slideIn .5s ease" }}>
-      <Confetti active={true} />
+      <ConfettiOnce />
       <div style={{ ...C.card, textAlign:"center", marginBottom:14 }}>
         <div style={{ fontSize:56, marginBottom:8, animation:"bounce 1s ease infinite" }}>{pct>=85?"🏆":pct>=65?"🌟":"💪"}</div>
         <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:26, margin:"0 0 4px" }}>{msg}</h2>
@@ -747,6 +753,11 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
         </div>
       )}
 
+      {code && onShare && (
+        <button onClick={onShare} style={{ ...C.btnP, background:"linear-gradient(135deg,#16a34a,#15803d)", boxShadow:"0 4px 20px #16a34a55" }}>
+          📱 שתף את האתגר
+        </button>
+      )}
       <button onClick={onSameTopic} style={C.btnP}>🔄 חידון נוסף על {topic}</button>
       <button onClick={onHome} style={C.btnS}>🏠 לדף הבית</button>
     </div>
@@ -818,15 +829,15 @@ export default function App() {
     setScores(s);
     const pct = fp(family.members, s);
     if (isChallenger) {
-      await saveChallenge(code, family.name, pct, setSbOnline);
-      await upsertScore(family.name, pct, setSbOnline);
+      await saveChallenge(code, family.name, pct, null);
+      await upsertScore(family.name, pct, null);
       setScreen("results");
     } else {
       const newCode = makeCode();
       setCode(newCode);
-      await saveQuizRoom(newCode, topic, quizData, family.name, pct, setSbOnline);
-      await saveChallenge(newCode, family.name, pct, setSbOnline);
-      await upsertScore(family.name, pct, setSbOnline);
+      await saveQuizRoom(newCode, topic, quizData, family.name, pct, null);
+      await saveChallenge(newCode, family.name, pct, null);
+      await upsertScore(family.name, pct, null);
       setScreen("share");
     }
   };
@@ -898,7 +909,7 @@ export default function App() {
           )}
           {screen==="quiz"         && quizData && family && <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />}
           {screen==="share"        && <ShareScreen code={code} topic={topic} familyName={family?.name} pct={pct} onContinue={()=>setScreen("results")} />}
-          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} onHome={()=>setScreen("home")} onSameTopic={handleSameTopic} onSetOnline={setSbOnline} />}
+          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} onHome={()=>setScreen("home")} onSameTopic={handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} />}
         </div>
       </div>
 
