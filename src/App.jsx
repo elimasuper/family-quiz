@@ -1,30 +1,16 @@
 import { useState } from "react";
 
-// פונקציית עזר לפענוח ה-JSON של השאלות
-const smartParse = (str) => {
-  if (!str) return [];
-  let clean = str.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "");
-  try { return JSON.parse(clean); } catch (e) {
-    const lastBrace = clean.lastIndexOf('}');
-    if (lastBrace !== -1) {
-      let repaired = clean.substring(0, lastBrace + 1);
-      if (!repaired.endsWith(']')) repaired += ']';
-      if (!repaired.startsWith('[')) repaired = '[' + repaired;
-      try { return JSON.parse(repaired); } catch (e2) { return []; }
-    }
-    return [];
-  }
-};
-
 export default function App() {
   const [loading, setLoading] = useState(false);
   const [quizData, setQuizData] = useState(null);
   const [topic, setTopic] = useState("");
-  const family = { members: [{name: "אבא", age: 40}, {name: "ילד", age: 8}] }; // דוגמה
+  const family = { members: [{name: "אבא", age: 40}, {name: "ילד", age: 8}] };
 
   const handleStartQuiz = async () => {
     if (!topic) return alert("נא להזין נושא");
     setLoading(true);
+    setQuizData(null);
+    
     try {
       const res = await fetch("/api/claude", {
         method: "POST",
@@ -34,20 +20,16 @@ export default function App() {
 
       const data = await res.json();
 
-      // הגנה: בדיקה אם השרת החזיר שגיאה
-      if (!res.ok) {
-        throw new Error(data.error || `שגיאת שרת: ${res.status}`);
-      }
+      if (!res.ok) throw new Error(data.error || "שגיאת שרת");
 
-      // הגנה: בדיקה אם המבנה של קלוד תקין
-      if (!data.content || !data.content[0]) {
-        throw new Error("ה-AI החזיר תשובה ריקה");
-      }
-
-      const questions = smartParse(data.content[0].text);
+      // פענוח הטקסט שהגיע מה-API
+      let rawText = data.text.trim();
+      // ניקוי סימני JSON אם ה-AI הוסיף אותם
+      const cleanJson = rawText.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+      const questions = JSON.parse(cleanJson);
+      
       setQuizData(questions);
     } catch (err) {
-      console.error(err);
       alert("שגיאה: " + err.message);
     } finally {
       setLoading(false);
@@ -55,26 +37,38 @@ export default function App() {
   };
 
   return (
-    <div style={{ direction: "rtl", textAlign: "center", padding: 20, background: "#0f172a", color: "white", minHeight: "100vh" }}>
-      <h1>חידון משפחתי 🚀</h1>
-      <input 
-        style={{ padding: 10, borderRadius: 8, width: "80%", maxWidth: 300 }}
-        placeholder="על מה נשחק היום?" 
-        value={topic} 
-        onChange={e => setTopic(e.target.value)} 
-      />
-      <button 
-        onClick={handleStartQuiz}
-        style={{ display: "block", margin: "10px auto", padding: "10px 20px", background: "#7c3aed", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }}
-      >
-        {loading ? "מייצר..." : "צור חידון"}
-      </button>
+    <div style={{ direction: "rtl", textAlign: "center", padding: 20, background: "#0f172a", color: "white", minHeight: "100vh", fontFamily: "sans-serif" }}>
+      <h1>🚀 חידון משפחתי</h1>
+      
+      <div style={{ marginBottom: 20 }}>
+        <input 
+          style={{ padding: 12, borderRadius: 8, width: "80%", maxWidth: 300, border: "none" }}
+          placeholder="נושא (למשל: ירושלים)" 
+          value={topic} 
+          onChange={e => setTopic(e.target.value)} 
+        />
+        <button 
+          onClick={handleStartQuiz}
+          disabled={loading}
+          style={{ display: "block", margin: "15px auto", padding: "12px 25px", background: "#7c3aed", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: "bold" }}
+        >
+          {loading ? "מייצר חידון... 🧠" : "צור חידון!"}
+        </button>
+      </div>
 
       {quizData && (
-        <div style={{ marginTop: 20 }}>
-          {quizData.map((q, i) => (
-            <div key={i} style={{ background: "rgba(255,255,255,0.1)", padding: 15, borderRadius: 12, marginBottom: 10 }}>
-              <p><strong>{q.m}:</strong> {q.q}</p>
+        <div style={{ maxWidth: 500, margin: "0 auto" }}>
+          {quizData.map((item, i) => (
+            <div key={i} style={{ background: "rgba(255,255,255,0.1)", padding: 15, borderRadius: 12, marginBottom: 15, textAlign: "right" }}>
+              <div style={{ color: "#a78bfa", fontSize: 12 }}>שאלה ל{item.m}:</div>
+              <p style={{ fontSize: 18, margin: "10px 0" }}>{item.q}</p>
+              <div style={{ display: "grid", gap: 8 }}>
+                {item.o.map((opt, idx) => (
+                  <button key={idx} style={{ padding: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.2)", color: "white", borderRadius: 6, textAlign: "right" }}>
+                    {opt}
+                  </button>
+                ))}
+              </div>
             </div>
           ))}
         </div>
