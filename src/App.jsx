@@ -4,45 +4,16 @@ import { useState, useEffect } from "react";
 const SUPABASE_URL = "https://bqboyursgerrejqvmvhq.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxYm95dXJzZ2VycmVqcXZtdmhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNTc0NDQsImV4cCI6MjA4ODYzMzQ0NH0.OPudQau6wVdUfKzLCMCxKG5F5VlYhCL_1Sfak0V1F8o";
 
-// ─── AI LOGIC (תיקון השגיאה) ────────────────────────────────────────────────
-const generateQuestions = async (topic, members) => {
-  try {
-    const res = await fetch("/api/claude", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic, members }) // שליחה בפורמט שה-API החדש מצפה לו
-    });
-
-    if (!res.ok) {
-      // אם השרת החזיר שגיאה, נבדוק מה הוא כתב שם
-      const errorText = await res.text();
-      console.error("שגיאת שרת:", errorText);
-      throw new Error(`השרת החזיר שגיאה: ${res.status}. בדוק את ה-Logs ב-Vercel.`);
-    }
-
-    const data = await res.json();
-    
-    // שליפת הטקסט מהמבנה של Anthropic
-    if (!data.content || !data.content[0]) {
-      throw new Error("ה-AI לא החזיר תוכן תקין. ייתכן שנגמרו הטוקנים בחשבון?");
-    }
-    
-    const rawContent = data.content[0].text;
-    return smartParse(rawContent);
-  } catch (err) {
-    console.error("Fetch Error:", err);
-    throw err;
-  }
-};
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+const todayStr = () => new Date().toISOString().split("T")[0];
 
 const smartParse = (str) => {
   if (!str) return [];
-  // ניקוי תגיות קוד אם ה-AI הוסיף אותן
   let clean = str.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "");
   try {
     return JSON.parse(clean);
   } catch (e) {
-    console.warn("JSON נקטע, מנסה לתקן...");
+    // ניסיון תיקון אם ה-AI נקטע באמצע
     const lastBrace = clean.lastIndexOf('}');
     if (lastBrace !== -1) {
       let repaired = clean.substring(0, lastBrace + 1);
@@ -53,7 +24,15 @@ const smartParse = (str) => {
     return [];
   }
 };
-// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
+
+// ─── STYLES (העיצוב המקורי שלך) ────────────────────────────────────────────────
+const C = {
+  card: { background: "rgba(255,255,255,0.05)", backdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 22, padding: "24px", textAlign: "center", maxWidth: 450, margin: "20px auto" },
+  btnP: { width: "100%", padding: "16px", background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", borderRadius: 18, color: "#fff", fontFamily: "'Fredoka One',cursive", fontSize: 20, cursor: "pointer", boxShadow: "0 4px 20px rgba(124,58,237,0.3)", marginTop: 15 },
+  inp: { width: "100%", background: "rgba(255,255,255,0.08)", border: "2px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px", color: "#fff", fontSize: 16, marginBottom: 12, outline: "none" }
+};
+
+// ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState("welcome");
   const [family, setFamily] = useState(null);
@@ -62,12 +41,28 @@ export default function App() {
   const [topic, setTopic] = useState("");
 
   const handleStartQuiz = async () => {
-    if (!topic) return alert("אנא הזן נושא");
+    if (!topic) return alert("אנא הזן נושא לחידון");
     setLoading(true);
     try {
-      // שליחת רשימת השמות מהמשפחה
-      const questions = await generateQuestions(topic, family.members);
-      if (questions.length === 0) throw new Error("לא נוצרו שאלות");
+      const res = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          topic, 
+          members: family.members || [{name: "משפחה", age: 30}] 
+        })
+      });
+
+      if (!res.ok) throw new Error("השרת נכשל. ודא שהגדרת ANTHROPIC_API_KEY ב-Vercel.");
+
+      const data = await res.json();
+      
+      // שליפה מהמבנה של Anthropic
+      if (!data.content || !data.content[0]) throw new Error("ה-AI לא החזיר תשובה.");
+      
+      const questions = smartParse(data.content[0].text);
+      if (questions.length === 0) throw new Error("לא הצלחנו לייצר שאלות תקינות.");
+      
       setQuizData(questions);
       setScreen("quiz");
     } catch (err) {
@@ -78,23 +73,34 @@ export default function App() {
   };
 
   return (
-    <div style={{ direction: "rtl", minHeight: "100vh", background: "#0f172a", color: "#fff", padding: 20, textAlign: "center" }}>
-      {loading && <div style={{ marginTop: 50 }}>🧠 מייצר חידון מויקיפדיה (זה לוקח כמה שניות)...</div>}
+    <div style={{ direction: "rtl", minHeight: "100vh", background: "#0f172a", color: "#fff", padding: 20, fontFamily: "'Varela Round', sans-serif" }}>
+      {loading && (
+        <div style={{ textAlign: "center", marginTop: 100 }}>
+          <div style={{ fontSize: 60 }}>🧠</div>
+          <h2 style={{ fontFamily: "'Fredoka One', cursive" }}>יוצר חידון מויקיפדיה...</h2>
+          <p>זה לוקח כמה שניות, אנחנו בודקים את העובדות.</p>
+        </div>
+      )}
 
       {!loading && screen === "welcome" && (
-        <WelcomeScreen onDone={(f) => { setFamily(f); setScreen("home"); }} />
+        <div style={C.card}>
+          <h1 style={{ fontFamily: "'Fredoka One', cursive", color: "#a78bfa" }}>Family Quiz</h1>
+          <input style={C.inp} placeholder="שם משפחה" onChange={e => setFamily({name: e.target.value, members: []})} />
+          <button style={C.btnP} onClick={() => setScreen("home")}>כניסה</button>
+        </div>
       )}
 
       {!loading && screen === "home" && (
-        <div style={{ maxWidth: 400, margin: "0 auto" }}>
-          <h2>שלום משפחת {family?.name}</h2>
+        <div style={C.card}>
+          <h2>שלום משפחת {family?.name}!</h2>
+          <p>על מה נשחק היום?</p>
           <input 
-            style={inputStyle} 
-            placeholder="נושא (למשל: הקיבוץ שלי, ירושלים, חלל)" 
+            style={C.inp} 
+            placeholder="למשל: ירושלים, קיבוץ בארי, חלל..." 
             value={topic} 
             onChange={e => setTopic(e.target.value)} 
           />
-          <button style={buttonStyle} onClick={handleStartQuiz}>התחל חידון חסכוני 💰</button>
+          <button style={C.btnP} onClick={handleStartQuiz}>התחל משחק חסכוני 💰</button>
         </div>
       )}
 
@@ -105,61 +111,40 @@ export default function App() {
   );
 }
 
-// ─── SUB-COMPONENTS ──────────────────────────────────────────────────────────
-function WelcomeScreen({ onDone }) {
-  const [name, setName] = useState("");
-  const [pin, setPin] = useState("");
-  
-  const handleJoin = () => {
-    // לצורך הבדיקה, ניצור אובייקט משפחה מקומי. 
-    // במציאות זה יגיע מ-Supabase עם רשימת המשתתפים האמיתית.
-    const mockFamily = { name, members: [{name: "אבא", age: 40}, {name: "ילד", age: 8}] };
-    onDone(mockFamily);
-  };
-
-  return (
-    <div style={{ maxWidth: 300, margin: "0 auto", padding: 20, background: "rgba(255,255,255,0.1)", borderRadius: 15 }}>
-      <h3>כניסה למשחק</h3>
-      <input style={inputStyle} placeholder="שם משפחה" value={name} onChange={e => setName(e.target.value)} />
-      <input style={inputStyle} type="password" placeholder="PIN" value={pin} onChange={e => setPin(e.target.value)} />
-      <button style={buttonStyle} onClick={handleJoin}>כניסה</button>
-    </div>
-  );
-}
-
+// ─── COMPONENTS ──────────────────────────────────────────────────────────────
 function QuizScreen({ quizData, onFinish }) {
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const q = quizData[currentIdx];
+  const [idx, setIdx] = useState(0);
+  const q = quizData[idx];
 
-  const handleAnswer = (isCorrect) => {
-    if (isCorrect) alert("נכון! 🎉");
-    else alert("לא נורא... 😕");
-    
-    if (currentIdx + 1 < quizData.length) setCurrentIdx(currentIdx + 1);
+  const handleChoice = (isCorrect) => {
+    if (isCorrect) alert("נכון מאוד! 🌟");
+    else alert("לא נורא, תלמדו משהו חדש... 📚");
+
+    if (idx + 1 < quizData.length) setIdx(idx + 1);
     else {
-      alert("החידון הסתיים!");
+      alert("סיימתם את החידון!");
       onFinish();
     }
   };
 
-  if (!q) return <div>אין שאלות להצגה</div>;
+  if (!q) return null;
 
   return (
-    <div style={{ maxWidth: 500, margin: "0 auto", padding: 20, background: "rgba(255,255,255,0.1)", borderRadius: 15 }}>
-      <p style={{ color: "#a78bfa" }}>תור של: {q.m}</p>
-      <h3>{q.q}</h3>
-      <div style={{ display: "grid", gap: 10 }}>
-        {q.o.map((opt, i) => (
-          <button key={i} style={optionButtonStyle} onClick={() => handleAnswer(i === q.a)}>
-            {opt}
+    <div style={C.card}>
+      <div style={{ color: "#a78bfa", fontWeight: "bold", marginBottom: 10 }}>השאלה של {q.m}:</div>
+      <h2 style={{ fontSize: 24, marginBottom: 20 }}>{q.q}</h2>
+      <div style={{ display: "grid", gap: 12 }}>
+        {q.o.map((option, i) => (
+          <button 
+            key={i} 
+            onClick={() => handleChoice(i === q.a)}
+            style={{ padding: "14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 12, color: "#fff", cursor: "pointer", textAlign: "right", fontSize: 16 }}
+          >
+            {option}
           </button>
         ))}
       </div>
+      <div style={{ marginTop: 20, fontSize: 14, color: "#64748b" }}>שאלה {idx + 1} מתוך {quizData.length}</div>
     </div>
   );
 }
-
-// ─── STYLES ──────────────────────────────────────────────────────────────────
-const inputStyle = { width: "100%", padding: 12, marginBottom: 10, borderRadius: 8, border: "none" };
-const buttonStyle = { width: "100%", padding: 15, background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: "bold" };
-const optionButtonStyle = { padding: 12, background: "rgba(255,255,255,0.05)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, cursor: "pointer", textAlign: "right" };
