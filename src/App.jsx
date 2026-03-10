@@ -118,9 +118,24 @@ async function upsertScore(familyName, pct) {
 // ─── WIKIPEDIA ────────────────────────────────────────────────────────────────
 async function fetchWiki(topic) {
   const tryLang = async (lang) => {
-    const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(topic)}&prop=extracts&explaintext=true&format=json&origin=*`);
+    // First try direct title lookup with redirects
+    const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(topic)}&prop=extracts&explaintext=true&format=json&origin=*&redirects=1`);
     const d = await r.json();
     const p = Object.values(d.query.pages)[0];
+    // pageid === -1 means page not found
+    if (p.pageid === -1 || p.missing !== undefined) {
+      // Fallback: search for the topic
+      const sr = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&srlimit=1&format=json&origin=*`);
+      const sd = await sr.json();
+      const hit = sd?.query?.search?.[0];
+      if (!hit) throw new Error("not found");
+      // Fetch the first search result
+      const r2 = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(hit.title)}&prop=extracts&explaintext=true&format=json&origin=*&redirects=1`);
+      const d2 = await r2.json();
+      const p2 = Object.values(d2.query.pages)[0];
+      if (!p2.extract || p2.extract.length < 200) throw new Error("short");
+      return { text: p2.extract, lang, title: p2.title };
+    }
     if (!p.extract || p.extract.length < 200) throw new Error("short");
     return { text: p.extract, lang, title: p.title };
   };
