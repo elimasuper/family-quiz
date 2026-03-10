@@ -150,7 +150,8 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     return             `${m.name}: שאלות מאתגרות עם פרטים ספציפיים.`;
   }).join("\n");
 
-  const prompt = `טקסט ויקיפדיה:\n${wikiText}\n\nמשתתפים:\n${desc}\n\nכללי גיל:\n${rules}\n\nצור שאלות חידון בעברית רק מהטקסט. אל תמציא עובדות. לכל שאלה הוסף emoji.\nהחזר JSON בלבד:\n{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}`;
+  const example = '{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}';
+  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nצור שאלות חידון בעברית רק מהטקסט. אל תמציא עובדות. לכל שאלה הוסף emoji.\nהחזר JSON בלבד, ללא טקסט נוסף:\n" + example;
   const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -161,9 +162,11 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     }),
   });
   const data = await res.json();
+  if (data.error) throw new Error("שגיאת API: " + (data.error.message || JSON.stringify(data.error)));
   const raw = (data.content?.[0]?.text || "").trim();
+  if (!raw) throw new Error("תשובה ריקה — בדוק ANTHROPIC_API_KEY ב-Vercel");
   const start = raw.indexOf("{");
-  if (start === -1) throw new Error("תשובה ריקה מה-AI");
+  if (start === -1) throw new Error("תגובת AI לא תקינה: " + raw.slice(0, 80));
   let text = raw.slice(start);
 
   // Try direct parse first
