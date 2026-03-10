@@ -118,6 +118,13 @@ async function upsertScore(familyName, pct, setOnline) {
 }
 
 // ─── WIKIPEDIA ────────────────────────────────────────────────────────────────
+const ag = (age) => {
+  if (age <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 5,  timer: 0,  bonus: false };
+  if (age <= 8)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 30, bonus: false };
+  if (age <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 8,  timer: 20, bonus: true  };
+  return              { label: "מתקדם",  color: "#a78bfa", emoji: "🔥", qCount: 8,  timer: 15, bonus: true  };
+};
+
 async function fetchWiki(topic) {
   // Hebrew only — keeps responses short and fast
   const url1 = `https://he.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(topic)}&prop=extracts&explaintext=true&exsectionformat=plain&format=json&origin=*&redirects=1`;
@@ -187,12 +194,6 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-const ag = (age) => {
-  if (age <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 5,  timer: 0,  bonus: false };
-  if (age <= 8)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 30, bonus: false };
-  if (age <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 8,  timer: 20, bonus: true  };
-  return              { label: "מתקדם",  color: "#a78bfa", emoji: "🔥", qCount: 8,  timer: 15, bonus: true  };
-};
 
 const PRAISE = ["וואו! 🎉","מדהים! ⭐","אלוף! 🏆","נכון! 💥","כל הכבוד! 🌟","מושלם! ✨","גאון! 🧠"];
 const MISS   = ["כמעט! 💪","ניסיון טוב 😊","בפעם הבאה! 🎯","אל תוותר! 🔥"];
