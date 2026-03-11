@@ -703,7 +703,7 @@ function ConfettiOnce() {
   return <Confetti active={active} />;
 }
 
-function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, onHome, onSameTopic, onSetOnline, onShare }) {
+function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, onHome, onSameTopic, onSetOnline, onShare, beatenBy, onRematch }) {
   const [board, setBoard] = useState([]);
   const [monthly, setMonthly] = useState({pts:[],avg:[]});
   const [tab, setTab] = useState("challenge");
@@ -782,6 +782,20 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
         </div>
       )}
 
+      {beatenBy && onRematch && (
+        <div style={{ ...C.card, background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.25)", textAlign:"center", marginBottom:14 }}>
+          <div style={{ fontSize:32, marginBottom:6 }}>⚔️</div>
+          <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:20, marginBottom:4 }}>
+            משפחת {beatenBy.name} עקפה אותכם!
+          </div>
+          <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:15, marginBottom:12 }}>
+            הם השיגו {beatenBy.score} נקודות. רוצים להחזיר?
+          </div>
+          <button onClick={onRematch} style={{ ...C.btnP, background:"linear-gradient(135deg,#f59e0b,#d97706)" }}>
+            🔥 אתגר חוזר — שאלות חדשות!
+          </button>
+        </div>
+      )}
       {code && onShare && (
         <button onClick={onShare} style={{ ...C.btnP, background:"linear-gradient(135deg,#16a34a,#15803d)", boxShadow:"0 4px 20px #16a34a55" }}>
           📱 שתף את האתגר
@@ -806,6 +820,7 @@ export default function App() {
   const [error, setError]         = useState("");
   const [blockedTopic, setBlockedTopic] = useState("");
   const [sbOnline, setSbOnline]         = useState(true);
+  const [beatenBy, setBeatenBy]   = useState(null); // {name, score} של מי שעקף
 
   // boot: check localStorage
   useEffect(() => {
@@ -861,6 +876,8 @@ export default function App() {
     if (isChallenger) {
       await saveChallenge(code, family.name, pct, null);
       await upsertScore(family.name, rawScore, pct, null);
+      // בדוק אם עקפת את היוצר או מישהו אחר
+      if (creatorPct !== null && rawScore > creatorPct) setBeatenBy(null);
       setScreen("results");
     } else {
       const newCode = makeCode();
@@ -868,6 +885,10 @@ export default function App() {
       await saveQuizRoom(newCode, topic, quizData, family.name, pct, null);
       await saveChallenge(newCode, family.name, pct, null);
       await upsertScore(family.name, rawScore, pct, null);
+      // בדוק אם יש מישהו עם ציון גבוה יותר באתגר
+      const challenges = await getChallenges(code || "", null).catch(()=>[]);
+      const beaten = (challenges||[]).find(r => r.family_name !== family.name && r.family_pct > pct);
+      if (beaten) setBeatenBy({ name: beaten.family_name, score: beaten.family_pct });
       setScreen("share");
     }
   };
@@ -878,7 +899,21 @@ export default function App() {
       const wiki = await fetchWiki(topic);
       const seed = Math.random().toString(36).slice(2,8);
       const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed);
-      stop(); setQuizData(data); setIsChallenger(false); setScreen("quiz");
+      stop(); setQuizData(data); setIsChallenger(false); setCreatorPct(null); setScreen("quiz");
+    } catch(e) { stop(); setError(e.message); setScreen("home"); }
+  };
+
+  const handleRematch = async () => {
+    // אתגר חוזר — שאלות חדשות על אותו נושא, שומר קוד קיים
+    const stop = startLoad();
+    try {
+      const wiki = await fetchWiki(topic);
+      const seed = Math.random().toString(36).slice(2,8);
+      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed);
+      // שמור חידון חדש על אותו קוד
+      const newCode = makeCode();
+      setCode(newCode);
+      stop(); setQuizData(data); setIsChallenger(false); setBeatenBy(null); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
 
@@ -939,7 +974,7 @@ export default function App() {
           )}
           {screen==="quiz"         && quizData && family && <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />}
           {screen==="share"        && <ShareScreen code={code} topic={topic} familyName={family?.name} pct={pct} onContinue={()=>setScreen("results")} />}
-          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} onHome={()=>setScreen("home")} onSameTopic={handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} />}
+          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} onHome={()=>setScreen("home")} onSameTopic={handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} beatenBy={beatenBy} onRematch={handleRematch} />}
         </div>
       </div>
 
