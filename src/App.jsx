@@ -205,7 +205,7 @@ const calcRawScore = (members, scores) => {
 const LOAD_MSGS = ["🔍 מחפש בויקיפדיה...","📖 קורא את המאמר...","🧠 יוצר שאלות...","✨ מותאם לכל גיל...","🎮 כמעט מוכן!"];
 // ─── SHARED STYLES ────────────────────────────────────────────────────────────
 const C = {
-  card: { background: "rgba(255,255,255,0.055)", backdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 22, padding: "18px", marginBottom: 14 },
+  card: { background: "rgba(255,255,255,0.055)", backdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 22, padding: "clamp(14px,2vw,28px)", marginBottom: 14 },
   lbl:  { color: "#64748b", fontFamily: "'Fredoka One',cursive", fontSize: 13, display: "block", marginBottom: 7 },
   inp:  { width: "100%", background: "rgba(255,255,255,0.07)", border: "2px solid rgba(255,255,255,0.12)", borderRadius: 12, padding: "12px 14px", color: "#fff", fontSize: 16, fontFamily: "'Varela Round',sans-serif", outline: "none", transition: "border-color 0.2s", marginBottom: 4 },
   btnP: { width: "100%", padding: "15px", background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", borderRadius: 18, color: "#fff", fontFamily: "'Fredoka One',cursive", fontSize: 20, cursor: "pointer", boxShadow: "0 4px 24px #7c3aed55", transition: "all 0.2s", marginBottom: 8, display: "block" },
@@ -227,7 +227,7 @@ function Confetti({ active }) {
 
 function FloatEmoji({ emoji }) {
   if (!emoji) return null;
-  return <div style={{ position:"fixed", top:"30%", left:"50%", fontSize:80, zIndex:9998, animation:"floatUp 1.2s ease forwards", pointerEvents:"none" }}>{emoji}</div>;
+  return <div style={{ position:"fixed", top:"30%", left:"50%", fontSize:"clamp(80px, 36vw, 96px)", zIndex:9998, animation:"floatUp 1.2s ease forwards", pointerEvents:"none" }}>{emoji}</div>;
 }
 
 function Spotlight({ member, onDone }) {
@@ -236,9 +236,9 @@ function Spotlight({ member, onDone }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", animation:"fadeSpot 1.4s ease forwards" }}>
       <div style={{ textAlign:"center", animation:"popIn .4s ease" }}>
-        <div style={{ width:90, height:90, borderRadius:"50%", background:`${g.color}22`, border:`3px solid ${g.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:44, margin:"0 auto 12px", boxShadow:`0 0 40px ${g.color}88` }}>{g.emoji}</div>
-        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:32 }}>תור של {member.name}!</div>
-        <div style={{ color:g.color, fontFamily:"'Varela Round',sans-serif", fontSize:18, marginTop:6 }}>{g.label}</div>
+        <div style={{ width:90, height:90, borderRadius:"50%", background:`${g.color}22`, border:`3px solid ${g.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(44px, 23vw, 53px)", margin:"0 auto 12px", boxShadow:`0 0 40px ${g.color}88` }}>{g.emoji}</div>
+        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(32px, 19vw, 40px)" }}>תור של {member.name}!</div>
+        <div style={{ color:g.color, fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(18px, 13vw, 25px)", marginTop:6 }}>{g.label}</div>
       </div>
     </div>
   );
@@ -261,7 +261,7 @@ function TimerBar({ seconds, color, onExpire, onTick }) {
       <div style={{ flex:1, background:"rgba(255,255,255,0.1)", borderRadius:20, height:10, overflow:"hidden" }}>
         <div style={{ width:`${pct*100}%`, height:"100%", background:col, borderRadius:20, transition:"width 1s linear, background .3s" }} />
       </div>
-      <div style={{ color:col, fontFamily:"'Fredoka One',cursive", fontSize:20, minWidth:32, textAlign:"center", animation:left<=5?"shake .3s ease infinite":"none" }}>{left}</div>
+      <div style={{ color:col, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", minWidth:32, textAlign:"center", animation:left<=5?"shake .3s ease infinite":"none" }}>{left}</div>
     </div>
   );
 }
@@ -289,16 +289,16 @@ function InstallBanner({ onDismiss }) {
   if (!show) return null;
   return (
     <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:500, padding:"12px 16px", background:"linear-gradient(135deg,#1e1b4b,#0f172a)", borderTop:"1px solid rgba(167,139,250,0.3)", animation:"slideUp .4s ease" }}>
-      <div style={{ maxWidth:640, margin:"0 auto", display:"flex", alignItems:"center", gap:12 }}>
-        <div style={{ fontSize:36 }}>📲</div>
+      <div style={{ maxWidth:900, margin:"0 auto", display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ fontSize:"clamp(36px, 20vw, 45px)" }}>📲</div>
         <div style={{ flex:1 }}>
-          <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:18 }}>הוסיפו לדף הבית!</div>
-          <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:16, marginTop:2 }}>
+          <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)" }}>הוסיפו לדף הבית!</div>
+          <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", marginTop:2 }}>
             {isIOS ? "לחצו על Share ← Add to Home Screen" : "גישה מהירה כמו אפליקציה"}
           </div>
         </div>
-        {!isIOS && <button onClick={install} style={{ background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:12, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:17, padding:"8px 16px", cursor:"pointer" }}>התקן</button>}
-        <button onClick={dismiss} style={{ background:"none", border:"none", color:"#475569", fontSize:22, cursor:"pointer", padding:"4px" }}>×</button>
+        {!isIOS && <button onClick={install} style={{ background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:12, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", padding:"8px 16px", cursor:"pointer" }}>התקן</button>}
+        <button onClick={dismiss} style={{ background:"none", border:"none", color:"#475569", fontSize:"clamp(22px, 15vw, 29px)", cursor:"pointer", padding:"4px" }}>×</button>
       </div>
     </div>
   );
@@ -341,14 +341,14 @@ function WelcomeScreen({ onDone }) {
   return (
     <div style={{ animation:"slideIn .4s ease" }}>
       <div style={{ textAlign:"center", marginBottom:24 }}>
-        <div style={{ fontSize:64, animation:"bounce 2s ease infinite" }}>🦊</div>
-        <h1 style={{ fontFamily:"'Fredoka One',cursive", color:"#fff", fontSize:32, margin:"8px 0 4px" }}>חידון המשפחה</h1>
-        <p style={{ color:"#475569", fontSize:17, fontFamily:"'Varela Round',sans-serif", margin:0 }}>מבוסס ויקיפדיה · חידון יומי · תחרות משפחות 🏆</p>
+        <div style={{ fontSize:"clamp(64px, 30vw, 77px)", animation:"bounce 2s ease infinite" }}>🦊</div>
+        <h1 style={{ fontFamily:"'Fredoka One',cursive", color:"#fff", fontSize:"clamp(32px, 19vw, 40px)", margin:"8px 0 4px" }}>חידון המשפחה</h1>
+        <p style={{ color:"#475569", fontSize:"clamp(17px, 12vw, 24px)", fontFamily:"'Varela Round',sans-serif", margin:0 }}>מבוסס ויקיפדיה · חידון יומי · תחרות משפחות 🏆</p>
       </div>
 
       <div style={{ display:"flex", gap:0, marginBottom:16, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:4 }}>
         {[{k:"new",l:"✨ משפחה חדשה"},{k:"returning",l:"👋 כבר רשומים"}].map(({k,l}) => (
-          <button key={k} onClick={() => setMode(k)} style={{ flex:1, padding:"10px", border:"none", borderRadius:11, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:17, background:mode===k?"rgba(124,58,237,0.4)":"transparent", color:mode===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
+          <button key={k} onClick={() => setMode(k)} style={{ flex:1, padding:"10px", border:"none", borderRadius:11, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", background:mode===k?"rgba(124,58,237,0.4)":"transparent", color:mode===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
         ))}
       </div>
 
@@ -359,9 +359,9 @@ function WelcomeScreen({ onDone }) {
 
         <label style={{ ...C.lbl, marginTop:12 }}>🔐 PIN (4 ספרות)</label>
         <input value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="בחרו קוד סודי" type="password" inputMode="numeric" maxLength={4}
-          style={{ ...C.inp, letterSpacing:8, fontSize:22, textAlign:"center" }}
+          style={{ ...C.inp, letterSpacing:8, fontSize:"clamp(22px, 15vw, 29px)", textAlign:"center" }}
           onFocus={e=>e.target.style.borderColor="#a78bfa"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,0.12)"} />
-        <p style={{ color:"#334155", fontSize:15, fontFamily:"'Varela Round',sans-serif", margin:"2px 0 0" }}>
+        <p style={{ color:"#334155", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", margin:"2px 0 0" }}>
           {mode==="new" ? "בחרו PIN שתזכרו — תצטרכו אותו בכניסות הבאות" : "הכניסו את ה-PIN שבחרתם בפעם הראשונה"}
         </p>
 
@@ -372,23 +372,23 @@ function WelcomeScreen({ onDone }) {
               const g = m.age ? ag(parseInt(m.age)) : null;
               return (
                 <div key={i} style={{ display:"flex", gap:8, marginBottom:10, alignItems:"center" }}>
-                  <div style={{ width:36, height:36, borderRadius:"50%", background:g?`${g.color}22`:"rgba(255,255,255,.08)", border:`2px solid ${g?g.color:"rgba(255,255,255,.15)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0, transition:"all .3s" }}>{g?g.emoji:"👤"}</div>
+                  <div style={{ width:36, height:36, borderRadius:"50%", background:g?`${g.color}22`:"rgba(255,255,255,.08)", border:`2px solid ${g?g.color:"rgba(255,255,255,.15)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)", flexShrink:0, transition:"all .3s" }}>{g?g.emoji:"👤"}</div>
                   <input value={m.name} onChange={e=>upd(i,"name",e.target.value)} placeholder="שם"
                     style={{ ...C.inp, flex:2, padding:"9px 12px", marginBottom:0 }}
                     onFocus={e=>e.target.style.borderColor="#4ade80"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"} />
                   <input value={m.age} onChange={e=>upd(i,"age",e.target.value)} placeholder="גיל" type="number" min="1" max="99"
                     style={{ ...C.inp, flex:1, padding:"9px 10px", marginBottom:0 }}
                     onFocus={e=>e.target.style.borderColor="#4ade80"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"} />
-                  {members.length > 1 && <button onClick={() => setMembers(m=>m.filter((_,j)=>j!==i))} style={{ background:"rgba(239,68,68,.15)", border:"1px solid #ef444466", borderRadius:10, color:"#f87171", width:32, height:32, cursor:"pointer", fontSize:19, flexShrink:0 }}>×</button>}
+                  {members.length > 1 && <button onClick={() => setMembers(m=>m.filter((_,j)=>j!==i))} style={{ background:"rgba(239,68,68,.15)", border:"1px solid #ef444466", borderRadius:10, color:"#f87171", width:32, height:32, cursor:"pointer", fontSize:"clamp(19px, 14vw, 25px)", flexShrink:0 }}>×</button>}
                 </div>
               );
             })}
-            <button onClick={() => setMembers(m=>[...m,{name:"",age:""}])} style={{ background:"rgba(255,255,255,.04)", border:"1px dashed rgba(255,255,255,.15)", borderRadius:12, padding:"9px", color:"#475569", cursor:"pointer", width:"100%", fontFamily:"'Varela Round',sans-serif", fontSize:17, marginTop:4 }}>+ הוסף משתתף</button>
+            <button onClick={() => setMembers(m=>[...m,{name:"",age:""}])} style={{ background:"rgba(255,255,255,.04)", border:"1px dashed rgba(255,255,255,.15)", borderRadius:12, padding:"9px", color:"#475569", cursor:"pointer", width:"100%", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", marginTop:4 }}>+ הוסף משתתף</button>
           </>
         )}
       </div>
 
-      {err && <div style={{ color:"#f87171", textAlign:"center", marginBottom:12, fontFamily:"'Varela Round',sans-serif", fontSize:17 }}>⚠️ {err}</div>}
+      {err && <div style={{ color:"#f87171", textAlign:"center", marginBottom:12, fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)" }}>⚠️ {err}</div>}
       <button onClick={go} disabled={loading} style={{ ...C.btnP, opacity:loading?0.7:1 }}>
         {loading ? "⏳ רגע..." : mode==="new" ? "🚀 בואו נשחק!" : "👋 כניסה"}
       </button>
@@ -414,18 +414,18 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
   return (
     <div style={{ animation:"slideIn .4s ease" }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20, padding:"12px 16px", background:"rgba(255,255,255,0.05)", borderRadius:18, border:"1px solid rgba(255,255,255,0.08)" }}>
-        <div style={{ fontSize:32 }}>🦊</div>
+        <div style={{ fontSize:"clamp(32px, 19vw, 40px)" }}>🦊</div>
         <div style={{ flex:1 }}>
-          <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:18 }}>שלום משפחת {family.name}! 👋</div>
-          <div style={{ color:"#334155", fontSize:16, fontFamily:"'Varela Round',sans-serif" }}>{family.members.length} משתתפים</div>
+          <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)" }}>שלום משפחת {family.name}! 👋</div>
+          <div style={{ color:"#334155", fontSize:"clamp(16px, 12vw, 22px)", fontFamily:"'Varela Round',sans-serif" }}>{family.members.length} משתתפים</div>
         </div>
-        <button onClick={onEditFamily} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:16, padding:"6px 12px", cursor:"pointer" }}>✏️ עדכון</button>
-        <button onClick={onLogout} style={{ background:"none", border:"none", color:"#334155", fontSize:18, cursor:"pointer", padding:"4px" }}>🔓</button>
+        <button onClick={onEditFamily} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", padding:"6px 12px", cursor:"pointer" }}>✏️ עדכון</button>
+        <button onClick={onLogout} style={{ background:"none", border:"none", color:"#334155", fontSize:"clamp(18px, 13vw, 25px)", cursor:"pointer", padding:"4px" }}>🔓</button>
       </div>
 
       <div style={{ display:"flex", gap:0, marginBottom:14, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:4 }}>
         {[{k:"play",l:"🎮 שחק"},{k:"join",l:"⚔️ אתגר"},{k:"board",l:"🏆 לוח"}].map(({k,l}) => (
-          <button key={k} onClick={() => setTab(k)} style={{ flex:1, padding:"9px", border:"none", borderRadius:11, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:17, background:tab===k?"rgba(124,58,237,0.4)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
+          <button key={k} onClick={() => setTab(k)} style={{ flex:1, padding:"9px", border:"none", borderRadius:11, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", background:tab===k?"rgba(124,58,237,0.4)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
         ))}
       </div>
 
@@ -437,10 +437,10 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
 
       {tab === "join" && (
         <div style={C.card}>
-          <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:17, margin:"0 0 14px" }}>קיבלתם קוד מחברים? הכניסו אותו ותתחרו!</p>
+          <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 14px" }}>קיבלתם קוד מחברים? הכניסו אותו ותתחרו!</p>
           <label style={C.lbl}>🔑 קוד החידון</label>
           <input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="1234" maxLength={4} type="text" inputMode="numeric"
-            style={{ ...C.inp, fontSize:32, textAlign:"center", letterSpacing:10, fontFamily:"'Fredoka One',cursive" }}
+            style={{ ...C.inp, fontSize:"clamp(32px, 19vw, 40px)", textAlign:"center", letterSpacing:10, fontFamily:"'Fredoka One',cursive" }}
             onFocus={e=>e.target.style.borderColor="#fbbf24"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"}
             onKeyDown={e=>e.key==="Enter"&&code.length===4&&onJoin(code)} />
           <button onClick={() => code.length===4&&onJoin(code)} disabled={code.length!==4}
@@ -452,16 +452,16 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
 
       {tab === "board" && (
         <div style={C.card}>
-          <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:17, marginBottom:12 }}>🏆 לוח הגיבורים החודשי</div>
-          {(monthly.pts||[]).length === 0 && <div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:17, padding:"20px 0" }}>אין עדיין תוצאות — היו הראשונים! 🎉</div>}
+          <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:12 }}>🏆 לוח הגיבורים החודשי</div>
+          {(monthly.pts||[]).length === 0 && <div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", padding:"20px 0" }}>אין עדיין תוצאות — היו הראשונים! 🎉</div>}
           {(monthly.pts||[]).map((r,i) => {
             const isMe = r.family_name === family.name;
             return (
               <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", marginBottom:6, background:isMe?"rgba(167,139,250,0.15)":"rgba(255,255,255,0.03)", borderRadius:12, border:`1px solid ${isMe?"#a78bfa44":"transparent"}` }}>
-                <span style={{ fontSize:18, minWidth:24 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>
-                <span style={{ flex:1, color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:17 }}>{r.family_name}{isMe?" (אתם)":""}</span>
-                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:18 }}>{r.monthly_points}נק'</span>
-                {r.streak > 1 && <span style={{ fontSize:15 }}>🔥{r.streak}</span>}
+                <span style={{ fontSize:"clamp(18px, 13vw, 25px)", minWidth:24 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>
+                <span style={{ flex:1, color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)" }}>{r.family_name}{isMe?" (אתם)":""}</span>
+                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)" }}>{r.monthly_points}נק'</span>
+                {r.streak > 1 && <span style={{ fontSize:"clamp(15px, 11vw, 21px)" }}>🔥{r.streak}</span>}
               </div>
             );
           })}
@@ -482,12 +482,12 @@ function TopicPicker({ onStart }) {
         onKeyDown={e=>e.key==="Enter"&&topic.trim()&&onStart(topic.trim())} />
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginTop:8, marginBottom:10 }}>
         {quick.map(({e,t}) => (
-          <button key={t} onClick={() => setTopic(t)} style={{ background:topic===t?"rgba(167,139,250,.25)":"rgba(255,255,255,.05)", border:`1px solid ${topic===t?"#a78bfa":"rgba(255,255,255,.1)"}`, borderRadius:12, padding:"9px 4px", cursor:"pointer", color:"#fff", fontSize:15, fontFamily:"'Varela Round',sans-serif", textAlign:"center", transition:"all .2s" }}>
-            <div style={{ fontSize:20, marginBottom:2 }}>{e}</div>{t}
+          <button key={t} onClick={() => setTopic(t)} style={{ background:topic===t?"rgba(167,139,250,.25)":"rgba(255,255,255,.05)", border:`1px solid ${topic===t?"#a78bfa":"rgba(255,255,255,.1)"}`, borderRadius:12, padding:"9px 4px", cursor:"pointer", color:"#fff", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", textAlign:"center", transition:"all .2s" }}>
+            <div style={{ fontSize:"clamp(20px, 14vw, 26px)", marginBottom:2 }}>{e}</div>{t}
           </button>
         ))}
       </div>
-      <p style={{ color:"#334155", fontSize:15, fontFamily:"'Varela Round',sans-serif", margin:"0 0 12px" }}>💡 שאלות מבוססות ויקיפדיה בלבד — מידע מאומת</p>
+      <p style={{ color:"#334155", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", margin:"0 0 12px" }}>💡 שאלות מבוססות ויקיפדיה בלבד — מידע מאומת</p>
       <button onClick={() => topic.trim() && onStart(topic.trim())} disabled={!topic.trim()}
         style={{ ...C.btnP, opacity:topic.trim()?1:0.4, marginBottom:0 }}>🚀 צור חידון!</button>
     </>
@@ -507,26 +507,26 @@ function EditFamilyScreen({ family, onSave, onBack }) {
 
   return (
     <div style={{ animation:"slideIn .4s ease" }}>
-      <button onClick={onBack} style={{ background:"none", border:"none", color:"#64748b", cursor:"pointer", fontFamily:"'Varela Round',sans-serif", fontSize:17, marginBottom:12, padding:0 }}>← חזרה</button>
+      <button onClick={onBack} style={{ background:"none", border:"none", color:"#64748b", cursor:"pointer", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:12, padding:0 }}>← חזרה</button>
       <div style={C.card}>
-        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:18, marginBottom:14 }}>✏️ עדכון הרכב המשפחה</div>
-        <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:17, margin:"0 0 14px" }}>ילד גדל? נולד תינוק? הצטרף סב/סבתא? עדכנו כאן.</p>
+        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:14 }}>✏️ עדכון הרכב המשפחה</div>
+        <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 14px" }}>ילד גדל? נולד תינוק? הצטרף סב/סבתא? עדכנו כאן.</p>
         {members.map((m,i) => {
           const g = m.age ? ag(parseInt(m.age)) : null;
           return (
             <div key={i} style={{ display:"flex", gap:8, marginBottom:10, alignItems:"center" }}>
-              <div style={{ width:36, height:36, borderRadius:"50%", background:g?`${g.color}22`:"rgba(255,255,255,.08)", border:`2px solid ${g?g.color:"rgba(255,255,255,.15)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>{g?g.emoji:"👤"}</div>
+              <div style={{ width:36, height:36, borderRadius:"50%", background:g?`${g.color}22`:"rgba(255,255,255,.08)", border:`2px solid ${g?g.color:"rgba(255,255,255,.15)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)", flexShrink:0 }}>{g?g.emoji:"👤"}</div>
               <input value={m.name} onChange={e=>upd(i,"name",e.target.value)} placeholder="שם"
                 style={{ ...C.inp, flex:2, padding:"9px 12px", marginBottom:0 }}
                 onFocus={e=>e.target.style.borderColor="#4ade80"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"} />
               <input value={m.age} onChange={e=>upd(i,"age",e.target.value)} placeholder="גיל" type="number"
                 style={{ ...C.inp, flex:1, padding:"9px 10px", marginBottom:0 }}
                 onFocus={e=>e.target.style.borderColor="#4ade80"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"} />
-              {members.length > 1 && <button onClick={() => setMembers(m=>m.filter((_,j)=>j!==i))} style={{ background:"rgba(239,68,68,.15)", border:"1px solid #ef444466", borderRadius:10, color:"#f87171", width:32, height:32, cursor:"pointer", fontSize:19, flexShrink:0 }}>×</button>}
+              {members.length > 1 && <button onClick={() => setMembers(m=>m.filter((_,j)=>j!==i))} style={{ background:"rgba(239,68,68,.15)", border:"1px solid #ef444466", borderRadius:10, color:"#f87171", width:32, height:32, cursor:"pointer", fontSize:"clamp(19px, 14vw, 25px)", flexShrink:0 }}>×</button>}
             </div>
           );
         })}
-        <button onClick={() => setMembers(m=>[...m,{name:"",age:""}])} style={{ background:"rgba(255,255,255,.04)", border:"1px dashed rgba(255,255,255,.15)", borderRadius:12, padding:"9px", color:"#475569", cursor:"pointer", width:"100%", fontFamily:"'Varela Round',sans-serif", fontSize:17, marginTop:4, marginBottom:14 }}>+ הוסף משתתף</button>
+        <button onClick={() => setMembers(m=>[...m,{name:"",age:""}])} style={{ background:"rgba(255,255,255,.04)", border:"1px dashed rgba(255,255,255,.15)", borderRadius:12, padding:"9px", color:"#475569", cursor:"pointer", width:"100%", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", marginTop:4, marginBottom:14 }}>+ הוסף משתתף</button>
         <button onClick={save} style={C.btnP}>💾 שמור שינויים</button>
       </div>
     </div>
@@ -537,9 +537,9 @@ function EditFamilyScreen({ family, onSave, onBack }) {
 function LoadingScreen({ msg, emoji }) {
   return (
     <div style={{ textAlign:"center", padding:"80px 20px", animation:"slideIn .4s ease" }}>
-      <div style={{ fontSize:72, marginBottom:16, animation:"spin 2s linear infinite", display:"inline-block" }}>{emoji}</div>
-      <h2 style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:26, marginBottom:8 }}>{msg}</h2>
-      <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:17 }}>מכין חידון מותאם לכל אחד...</p>
+      <div style={{ fontSize:"clamp(72px, 33vw, 86px)", marginBottom:16, animation:"spin 2s linear infinite", display:"inline-block" }}>{emoji}</div>
+      <h2 style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(26px, 16vw, 32px)", marginBottom:8 }}>{msg}</h2>
+      <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)" }}>מכין חידון מותאם לכל אחד...</p>
       <div style={{ display:"flex", gap:10, justifyContent:"center", marginTop:24 }}>
         {[0,1,2,3].map(i => <div key={i} style={{ width:10, height:10, borderRadius:"50%", background:"#a78bfa", animation:`pulse 1.4s ease ${i*.3}s infinite` }} />)}
       </div>
@@ -601,7 +601,7 @@ function QuizScreen({ quizData, members, onFinish }) {
       {spot && <Spotlight member={member} onDone={() => setSpot(false)} />}
 
       <div style={{ marginBottom:14 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", color:"#475569", fontSize:16, fontFamily:"'Varela Round',sans-serif", marginBottom:5 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", color:"#475569", fontSize:"clamp(16px, 12vw, 22px)", fontFamily:"'Varela Round',sans-serif", marginBottom:5 }}>
           <span>שאלה {ti+1} / {turns.length}</span><span>{progress}%</span>
         </div>
         <div style={{ background:"rgba(255,255,255,.08)", borderRadius:20, height:8, overflow:"hidden" }}>
@@ -610,8 +610,8 @@ function QuizScreen({ quizData, members, onFinish }) {
         <div style={{ display:"flex", gap:6, marginTop:8, flexWrap:"wrap" }}>
           {members.map(m => { const mg=ag(m.age); const s=scores[m.name]; return (
             <div key={m.name} style={{ display:"flex", alignItems:"center", gap:4, opacity:m.name===member.name?1:.4, transition:"opacity .3s", background:m.name===member.name?`${mg.color}22`:"transparent", borderRadius:20, padding:"2px 8px 2px 4px", border:m.name===member.name?`1px solid ${mg.color}44`:"1px solid transparent" }}>
-              <span style={{ fontSize:17 }}>{mg.emoji}</span>
-              <span style={{ color:mg.color, fontFamily:"'Fredoka One',cursive", fontSize:15 }}>{s.points||0}נק'</span>
+              <span style={{ fontSize:"clamp(17px, 12vw, 24px)" }}>{mg.emoji}</span>
+              <span style={{ color:mg.color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(15px, 11vw, 21px)" }}>{s.points||0}נק'</span>
             </div>
           ); })}
         </div>
@@ -619,12 +619,12 @@ function QuizScreen({ quizData, members, onFinish }) {
 
       <div style={{ ...C.card, borderColor:`${g.color}44`, animation:"slideIn .3s ease" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-          <div style={{ width:42, height:42, borderRadius:"50%", background:`${g.color}22`, border:`2.5px solid ${g.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0, boxShadow:!done?`0 0 16px ${g.color}66`:"none", transition:"box-shadow .3s" }}>{g.emoji}</div>
+          <div style={{ width:42, height:42, borderRadius:"50%", background:`${g.color}22`, border:`2.5px solid ${g.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(20px, 14vw, 26px)", flexShrink:0, boxShadow:!done?`0 0 16px ${g.color}66`:"none", transition:"box-shadow .3s" }}>{g.emoji}</div>
           <div style={{ flex:1 }}>
-            <div style={{ color:g.color, fontFamily:"'Fredoka One',cursive", fontSize:18 }}>תור של {member.name}</div>
-            <div style={{ color:"#334155", fontSize:15, fontFamily:"'Varela Round',sans-serif" }}>{g.label}{g.bonus?" · ⚡ בונוס מהירות":""}</div>
+            <div style={{ color:g.color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)" }}>תור של {member.name}</div>
+            <div style={{ color:"#334155", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif" }}>{g.label}{g.bonus?" · ⚡ בונוס מהירות":""}</div>
           </div>
-          <div style={{ fontSize:28 }}>{question.emoji||"❓"}</div>
+          <div style={{ fontSize:"clamp(28px, 17vw, 35px)" }}>{question.emoji||"❓"}</div>
         </div>
 
         {g.timer > 0 && !done && <TimerBar key={timerKey} seconds={g.timer} color={g.color} onExpire={() => answer(-1)} onTick={setTimeLeft} />}
@@ -640,7 +640,7 @@ function QuizScreen({ quizData, members, onFinish }) {
                 style={{ background:bg, border:`2px solid ${brd}`, borderRadius:14, padding:member.age<=5?"16px 10px":"11px 12px", cursor:done?"default":"pointer", display:"flex", alignItems:"center", gap:8, transition:"all .2s", fontFamily:"'Varela Round',sans-serif", color:"#fff", fontSize:member.age<=5?16:14, textAlign:"right", animation:done&&i===question.correct_index?"correctPulse .5s ease":done&&i===sel&&i!==question.correct_index?"shake .3s ease":"" }}
                 onMouseEnter={e=>{ if(!done){e.currentTarget.style.transform="scale(1.03)";e.currentTarget.style.background="rgba(255,255,255,.12)"}}}
                 onMouseLeave={e=>{ if(!done){e.currentTarget.style.transform="scale(1)";e.currentTarget.style.background=bg}}}>
-                <span style={{ background:`${g.color}22`, color:g.color, borderRadius:"50%", width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:"bold", flexShrink:0 }}>{labels[i]}</span>
+                <span style={{ background:`${g.color}22`, color:g.color, borderRadius:"50%", width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(15px, 11vw, 21px)", fontWeight:"bold", flexShrink:0 }}>{labels[i]}</span>
                 <span style={{ flex:1 }}>{ans}</span>
                 {done&&i===question.correct_index&&<span>✅</span>}
                 {done&&i===sel&&i!==question.correct_index&&<span>❌</span>}
@@ -651,8 +651,8 @@ function QuizScreen({ quizData, members, onFinish }) {
 
         {done && (
           <div style={{ marginTop:12, animation:"slideIn .3s ease" }}>
-            <div style={{ textAlign:"center", fontFamily:"'Fredoka One',cursive", fontSize:22, color:sel===question.correct_index?"#4ade80":"#f87171", marginBottom:8 }}>{msg}</div>
-            {question.explanation && <div style={{ background:"rgba(255,255,255,.06)", borderRadius:12, padding:"10px 14px", color:"#94a3b8", fontSize:17, fontFamily:"'Varela Round',sans-serif", borderRight:`3px solid ${g.color}` }}>💡 {question.explanation}</div>}
+            <div style={{ textAlign:"center", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 29px)", color:sel===question.correct_index?"#4ade80":"#f87171", marginBottom:8 }}>{msg}</div>
+            {question.explanation && <div style={{ background:"rgba(255,255,255,.06)", borderRadius:12, padding:"10px 14px", color:"#94a3b8", fontSize:"clamp(17px, 12vw, 24px)", fontFamily:"'Varela Round',sans-serif", borderRight:`3px solid ${g.color}` }}>💡 {question.explanation}</div>}
           </div>
         )}
       </div>
@@ -677,17 +677,17 @@ function ShareScreen({ code, topic, familyName, pct, onContinue }) {
 
   return (
     <div style={{ ...C.card, textAlign:"center", animation:"slideIn .4s ease" }}>
-      <div style={{ fontSize:52, marginBottom:8 }}>🎉</div>
-      <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:24, margin:"0 0 6px" }}>שלחו את האתגר!</h2>
-      <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:17, margin:"0 0 20px" }}>הזמינו משפחה אחרת לאותו חידון</p>
+      <div style={{ fontSize:"clamp(52px, 26vw, 62px)", marginBottom:8 }}>🎉</div>
+      <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 6px" }}>שלחו את האתגר!</h2>
+      <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 20px" }}>הזמינו משפחה אחרת לאותו חידון</p>
 
       <div style={{ background:"rgba(251,191,36,.1)", border:"1px solid rgba(251,191,36,.25)", borderRadius:16, padding:"16px 20px", marginBottom:16 }}>
-        <div style={{ color:"#64748b", fontSize:16, fontFamily:"'Varela Round',sans-serif", marginBottom:4 }}>קוד החידון</div>
-        <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:56, letterSpacing:10, lineHeight:1 }}>{code}</div>
+        <div style={{ color:"#64748b", fontSize:"clamp(16px, 12vw, 22px)", fontFamily:"'Varela Round',sans-serif", marginBottom:4 }}>קוד החידון</div>
+        <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(56px, 28vw, 67px)", letterSpacing:10, lineHeight:1 }}>{code}</div>
       </div>
 
       <a href={`https://wa.me/?text=${waText}`} target="_blank" rel="noreferrer"
-        style={{ display:"block", padding:"15px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:20, textDecoration:"none", marginBottom:8, boxShadow:"0 4px 20px #16a34a55" }}>
+        style={{ display:"block", padding:"15px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", textDecoration:"none", marginBottom:8, boxShadow:"0 4px 20px #16a34a55" }}>
         📱 שליחה בוואטסאפ
       </a>
       <button onClick={copy} style={{ ...C.btnS, color:copied?"#4ade80":"#94a3b8" }}>{copied?"✅ הועתק!":"🔗 העתק קישור"}</button>
@@ -722,31 +722,31 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
     <div style={{ animation:"slideIn .5s ease" }}>
       <ConfettiOnce />
       <div style={{ ...C.card, textAlign:"center", marginBottom:14 }}>
-        <div style={{ fontSize:56, marginBottom:8, animation:"bounce 1s ease infinite" }}>{pct>=85?"🏆":pct>=65?"🌟":"💪"}</div>
-        <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:26, margin:"0 0 4px" }}>{msg}</h2>
-        {beat && <div style={{ color:"#4ade80", fontFamily:"'Fredoka One',cursive", fontSize:18, marginBottom:6 }}>🎯 ניצחתם! ({pct}% vs {creatorPct}%)</div>}
-        <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", margin:"0 0 14px", fontSize:17 }}>משפחת {familyName} · {topic}</p>
+        <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:8, animation:"bounce 1s ease infinite" }}>{pct>=85?"🏆":pct>=65?"🌟":"💪"}</div>
+        <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(26px, 16vw, 32px)", margin:"0 0 4px" }}>{msg}</h2>
+        {beat && <div style={{ color:"#4ade80", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:6 }}>🎯 ניצחתם! ({pct}% vs {creatorPct}%)</div>}
+        <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", margin:"0 0 14px", fontSize:"clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
         <div style={{ background:"rgba(255,255,255,.08)", borderRadius:16, padding:"14px 24px", display:"inline-block" }}>
-          <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:52, lineHeight:1 }}>{pct}%</div>
-          {myRank>0&&<div style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:16, marginTop:4 }}>מקום {myRank} מבין {board.length} משפחות</div>}
+          <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{pct}%</div>
+          {myRank>0&&<div style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", marginTop:4 }}>מקום {myRank} מבין {board.length} משפחות</div>}
         </div>
       </div>
 
       <div style={C.card}>
-        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:19, marginBottom:10 }}>🎖️ גיבורי המשפחה</div>
+        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(19px, 14vw, 25px)", marginBottom:10 }}>🎖️ גיבורי המשפחה</div>
         {[...members].sort((a,b) => (scores[b.name]?.points||0)-(scores[a.name]?.points||0)).map((m,i) => {
           const g=ag(m.age); const s=scores[m.name]; const p=s.total?Math.round(s.correct/s.total*100):0;
           return (
             <div key={m.name} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8, padding:"12px", background:"rgba(255,255,255,.04)", borderRadius:14, border:`1px solid ${g.color}33` }}>
-              <span style={{ fontSize:20 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"🎖️"}</span>
-              <div style={{ width:36, height:36, borderRadius:"50%", background:`${g.color}22`, border:`2px solid ${g.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{g.emoji}</div>
+              <span style={{ fontSize:"clamp(20px, 14vw, 26px)" }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"🎖️"}</span>
+              <div style={{ width:36, height:36, borderRadius:"50%", background:`${g.color}22`, border:`2px solid ${g.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)" }}>{g.emoji}</div>
               <div style={{ flex:1 }}>
-                <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:16 }}>{m.name}</div>
-                <div style={{ color:"#64748b", fontSize:13, fontFamily:"'Varela Round',sans-serif" }}>{s.correct}/{s.total} נכון · {p}%{g.bonus?" · ⚡ בונוס זמן":""}</div>
+                <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 22px)" }}>{m.name}</div>
+                <div style={{ color:"#64748b", fontSize:"clamp(13px, 10vw, 20px)", fontFamily:"'Varela Round',sans-serif" }}>{s.correct}/{s.total} נכון · {p}%{g.bonus?" · ⚡ בונוס זמן":""}</div>
               </div>
               <div style={{ textAlign:"center" }}>
-                <div style={{ color:g.color, fontFamily:"'Fredoka One',cursive", fontSize:26 }}>{s.points||0}</div>
-                <div style={{ color:"#475569", fontSize:12, fontFamily:"'Varela Round',sans-serif" }}>נקודות</div>
+                <div style={{ color:g.color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(26px, 16vw, 32px)" }}>{s.points||0}</div>
+                <div style={{ color:"#475569", fontSize:"clamp(12px, 9vw, 18px)", fontFamily:"'Varela Round',sans-serif" }}>נקודות</div>
               </div>
             </div>
           );
@@ -757,7 +757,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
         <div style={C.card}>
           <div style={{ display:"flex", gap:0, marginBottom:10, background:"rgba(255,255,255,.06)", borderRadius:12, padding:3 }}>
             {[{k:"challenge",l:"⚔️ אתגר זה"},{k:"mpts",l:"🏆 חודשי"},{k:"mavg",l:"⭐ איכות"}].map(({k,l}) => (
-              <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:"7px", border:"none", borderRadius:10, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:14, background:tab===k?"rgba(124,58,237,.35)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
+              <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:"7px", border:"none", borderRadius:10, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 11vw, 21px)", background:tab===k?"rgba(124,58,237,.35)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
             ))}
           </div>
           {(() => {
@@ -768,27 +768,27 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
               const isMe = r.family_name===familyName;
               return (
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", marginBottom:5, background:isMe?"rgba(167,139,250,.15)":"rgba(255,255,255,.03)", borderRadius:12, border:`1px solid ${isMe?"#a78bfa44":"transparent"}` }}>
-                  <span style={{ fontSize:19, minWidth:22 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>
+                  <span style={{ fontSize:"clamp(19px, 14vw, 25px)", minWidth:22 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>
                   <div style={{ flex:1 }}>
-                    <div style={{ color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:16 }}>{r.family_name}{isMe?" ← אתם":""}</div>
-                    {getSub(r)&&<div style={{ color:"#475569", fontSize:12 }}>{getSub(r)}</div>}
+                    <div style={{ color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)" }}>{r.family_name}{isMe?" ← אתם":""}</div>
+                    {getSub(r)&&<div style={{ color:"#475569", fontSize:"clamp(12px, 9vw, 18px)" }}>{getSub(r)}</div>}
                   </div>
-                  <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:17 }}>{getVal(r)}</span>
+                  <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)" }}>{getVal(r)}</span>
                 </div>
               );
             });
           })()}
-          {(tab==="challenge"?board:tab==="mpts"?monthly.pts:monthly.avg).length===0&&<div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:17, padding:"12px 0" }}>אתם הראשונים! 🎉</div>}
+          {(tab==="challenge"?board:tab==="mpts"?monthly.pts:monthly.avg).length===0&&<div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", padding:"12px 0" }}>אתם הראשונים! 🎉</div>}
         </div>
       )}
 
       {beatenBy && onRematch && (
         <div style={{ ...C.card, background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.25)", textAlign:"center", marginBottom:14 }}>
-          <div style={{ fontSize:32, marginBottom:6 }}>⚔️</div>
-          <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:20, marginBottom:4 }}>
+          <div style={{ fontSize:"clamp(32px, 19vw, 40px)", marginBottom:6 }}>⚔️</div>
+          <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", marginBottom:4 }}>
             משפחת {beatenBy.name} עקפה אותכם!
           </div>
-          <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:15, marginBottom:12 }}>
+          <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 21px)", marginBottom:12 }}>
             הם השיגו {beatenBy.score} נקודות. רוצים להחזיר?
           </div>
           <button onClick={onRematch} style={{ ...C.btnP, background:"linear-gradient(135deg,#f59e0b,#d97706)" }}>
@@ -941,31 +941,31 @@ export default function App() {
         @keyframes correctPulse{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
       `}</style>
 
-      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#05050f 0%,#0f172a 40%,#1a1540 70%,#0a0a18 100%)", padding:"20px 16px 80px", display:"flex", flexDirection:"column", alignItems:"center" }}>
+      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#05050f 0%,#0f172a 40%,#1a1540 70%,#0a0a18 100%)", padding:"clamp(16px, 3vw, 40px) clamp(16px, 4vw, 60px) 80px", display:"flex", flexDirection:"column", alignItems:"center" }}>
         {!sbOnline && (
-          <div style={{ width:"100%", maxWidth:640, background:"rgba(239,68,68,.12)", border:"1px solid rgba(239,68,68,.2)", borderRadius:12, padding:"8px 14px", marginBottom:10, color:"#f87171", fontFamily:"'Varela Round',sans-serif", fontSize:16, textAlign:"center" }}>
+          <div style={{ width:"100%", maxWidth:900, background:"rgba(239,68,68,.12)", border:"1px solid rgba(239,68,68,.2)", borderRadius:12, padding:"8px 14px", marginBottom:10, color:"#f87171", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", textAlign:"center" }}>
             ⚠️ מצב לא מקוון — לוח התוצאות לא זמין כרגע
           </div>
         )}
         {error && (
-          <div style={{ width:"100%", maxWidth:640, background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", borderRadius:12, padding:"10px 14px", marginBottom:12, color:"#f87171", fontFamily:"'Varela Round',sans-serif", fontSize:17, textAlign:"center" }}>
-            ⚠️ {error} <button onClick={()=>setError("")} style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer", marginRight:8, fontSize:19 }}>×</button>
+          <div style={{ width:"100%", maxWidth:900, background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", borderRadius:12, padding:"10px 14px", marginBottom:12, color:"#f87171", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", textAlign:"center" }}>
+            ⚠️ {error} <button onClick={()=>setError("")} style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer", marginRight:8, fontSize:"clamp(19px, 14vw, 25px)" }}>×</button>
           </div>
         )}
 
-        <div style={{ width:"100%", maxWidth:640 }}>
+        <div style={{ width:"100%", maxWidth:900 }}>
           {screen==="welcome"      && <WelcomeScreen onDone={handleWelcomeDone} />}
           {screen==="home"         && family && <HomeScreen family={family} onPlay={handlePlay} onJoin={handleJoin} onEditFamily={()=>setScreen("editFamily")} onLogout={handleLogout} onSetOnline={setSbOnline} />}
           {screen==="editFamily"   && family && <EditFamilyScreen family={family} onSave={handleEditSave} onBack={()=>setScreen("home")} />}
           {screen==="loading"      && <LoadingScreen msg={loadMsg} emoji={te(topic)||"📖"} />}
           {screen==="alreadyPlayed"&& (
             <div style={{ ...C.card, textAlign:"center", animation:"slideIn .4s ease" }}>
-              <div style={{ fontSize:56, marginBottom:12 }}>🔒</div>
-              <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:24, margin:"0 0 8px" }}>כבר שיחקתם!</h2>
-              <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:17, margin:"0 0 6px" }}>
+              <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:12 }}>🔒</div>
+              <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 8px" }}>כבר שיחקתם!</h2>
+              <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 6px" }}>
                 משפחת {family?.name} כבר שיחקה את החידון הזה.
               </p>
-              <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:17, margin:"0 0 20px" }}>
+              <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 20px" }}>
                 כל קוד חידון ניתן לשחק פעם אחת בלבד — זה מה שהופך את התחרות להוגנת! 🏆
               </p>
               <button onClick={() => handlePlay(blockedTopic)} style={C.btnP}>🎲 חידון חדש על {blockedTopic}</button>
