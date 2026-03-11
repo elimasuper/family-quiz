@@ -89,29 +89,38 @@ async function hasPlayedQuiz(code, familyName, setOnline) {
 
 async function getMonthlyBoard(setOnline) {
   return sbSafe(async () => {
-    const r = await sbFetch(`family_scores?select=family_name,weekly_points,streak&order=weekly_points.desc&limit=10`);
-    return r || [];
-  }, [], setOnline);
+    const [pts, avg] = await Promise.all([
+      sbFetch(`family_scores?select=family_name,monthly_points&order=monthly_points.desc&limit=10`),
+      sbFetch(`family_scores?select=family_name,monthly_avg,monthly_games&order=monthly_avg.desc&limit=10`),
+    ]);
+    return { pts: pts||[], avg: avg||[] };
+  }, { pts:[], avg:[] }, setOnline);
 }
 
-async function upsertScore(familyName, pct, setOnline) {
+async function upsertScore(familyName, rawScore, pct, setOnline) {
   return sbSafe(async () => {
     const ex = await sbFetch(`family_scores?family_name=eq.${encodeURIComponent(familyName)}&select=*`);
     const today = todayStr();
+    const thisMonth = today.slice(0,7); // "2026-03"
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
     if (ex && ex.length > 0) {
       const r = ex[0];
       let streak = r.streak;
       if (r.last_played === yesterday) streak += 1;
       else if (r.last_played !== today) streak = 1;
+      // חודשי: אפס אם חודש חדש
+      const sameMonth = (r.last_month || "") === thisMonth;
+      const mGames = sameMonth ? (r.monthly_games||0)+1 : 1;
+      const mPoints = sameMonth ? (r.monthly_points||0)+rawScore : rawScore;
+      const mAvg = sameMonth ? Math.round(((r.monthly_avg||0)*(mGames-1)+pct)/mGames) : pct;
       await sbFetch(`family_scores?family_name=eq.${encodeURIComponent(familyName)}`, {
         method: "PATCH", prefer: "return=minimal",
-        body: JSON.stringify({ weekly_points: r.weekly_points + pct, total_games: r.total_games + 1, streak, last_played: today }),
+        body: JSON.stringify({ weekly_points: rawScore, total_games: r.total_games+1, streak, last_played: today, last_month: thisMonth, monthly_points: mPoints, monthly_games: mGames, monthly_avg: mAvg }),
       });
     } else {
       await sbFetch("family_scores", {
         method: "POST", prefer: "return=minimal",
-        body: JSON.stringify({ family_name: familyName, weekly_points: pct, total_games: 1, streak: 1, last_played: today }),
+        body: JSON.stringify({ family_name: familyName, weekly_points: rawScore, total_games: 1, streak: 1, last_played: today, last_month: thisMonth, monthly_points: rawScore, monthly_games: 1, monthly_avg: pct }),
       });
     }
   }, null, setOnline);
@@ -176,10 +185,21 @@ const rnd    = (a) => a[Math.floor(Math.random() * a.length)];
 
 const TMAP   = { "דינוזאורים":"🦕","חלל":"🚀","אריות":"🦁","דולפינים":"🐬","מצרים":"🏛️","ים":"🌊","כדורגל":"⚽","מדע":"🔬","ציפורים":"🦅","הר":"🗻" };
 const te     = (t) => { for (const [k,v] of Object.entries(TMAP)) if (t?.includes(k)) return v; return "🌟"; };
-const fp     = (members, scores) => {
+const fp = (members, scores) => {
   const valid = members.filter(m => scores[m.name]?.total > 0);
   if (!valid.length) return 0;
   return Math.round(valid.reduce((s,m) => { const sc=scores[m.name]; return s + sc.correct/sc.total*100; }, 0) / valid.length);
+};
+// ציון גולמי: (% נכון × 100) + ממוצע שניות שנשארו
+const calcRawScore = (members, scores) => {
+  const valid = members.filter(m => scores[m.name]?.total > 0);
+  if (!valid.length) return 0;
+  const pct = valid.reduce((s,m) => { const sc=scores[m.name]; return s + sc.correct/sc.total*100; }, 0) / valid.length;
+  const timerScores = valid.filter(m => scores[m.name].timerCount > 0);
+  const avgSecs = timerScores.length
+    ? timerScores.reduce((s,m) => s + scores[m.name].timerSum/scores[m.name].timerCount, 0) / timerScores.length
+    : 0;
+  return Math.round(pct * 100 + avgSecs);
 };
 
 const LOAD_MSGS = ["🔍 מחפש בויקיפדיה...","📖 קורא את המאמר...","🧠 יוצר שאלות...","✨ מותאם לכל גיל...","🎮 כמעט מוכן!"];
@@ -380,9 +400,9 @@ function WelcomeScreen({ onDone }) {
 function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnline }) {
   const [code, setCode] = useState("");
   const [tab, setTab] = useState("play");
-  const [monthly, setMonthly] = useState([]);
+  const [monthly, setMonthly] = useState({pts:[],avg:[]});
 
-  useEffect(() => { getMonthlyBoard(onSetOnline).then(d => setMonthly(d || [])); }, []);
+  useEffect(() => { getMonthlyBoard(onSetOnline).then(d => setMonthly(d || {pts:[],avg:[]})); }, []);
 
   // detect code from URL
   useEffect(() => {
@@ -433,14 +453,14 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
       {tab === "board" && (
         <div style={C.card}>
           <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:17, marginBottom:12 }}>🏆 לוח הגיבורים החודשי</div>
-          {monthly.length === 0 && <div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:17, padding:"20px 0" }}>אין עדיין תוצאות — היו הראשונים! 🎉</div>}
-          {monthly.map((r,i) => {
+          {(monthly.pts||[]).length === 0 && <div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:17, padding:"20px 0" }}>אין עדיין תוצאות — היו הראשונים! 🎉</div>}
+          {(monthly.pts||[]).map((r,i) => {
             const isMe = r.family_name === family.name;
             return (
               <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", marginBottom:6, background:isMe?"rgba(167,139,250,0.15)":"rgba(255,255,255,0.03)", borderRadius:12, border:`1px solid ${isMe?"#a78bfa44":"transparent"}` }}>
                 <span style={{ fontSize:18, minWidth:24 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>
                 <span style={{ flex:1, color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:17 }}>{r.family_name}{isMe?" (אתם)":""}</span>
-                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:18 }}>{r.weekly_points}נק'</span>
+                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:18 }}>{r.monthly_points}נק'</span>
                 {r.streak > 1 && <span style={{ fontSize:15 }}>🔥{r.streak}</span>}
               </div>
             );
@@ -544,7 +564,7 @@ function QuizScreen({ quizData, members, onFinish }) {
   const [msg, setMsg] = useState("");
   const [spot, setSpot] = useState(true);
   const [timerKey, setTimerKey] = useState(0);
-  const [scores, setScores] = useState(() => Object.fromEntries(members.map(m => [m.name, {correct:0,total:0,points:0}])));
+  const [scores, setScores] = useState(() => Object.fromEntries(members.map(m => [m.name, {correct:0,total:0,points:0,timerSum:0,timerCount:0}])));
   const [timeLeft, setTimeLeft] = useState(0);
 
   if (ti >= turns.length) { onFinish(scores); return null; }
@@ -563,7 +583,8 @@ function QuizScreen({ quizData, members, onFinish }) {
     const base = ok ? 10 : 0;
     const bonus = ok && g.timer > 0 ? timeLeft : 0;
     const pts = base + bonus;
-    setScores(s => ({ ...s, [member.name]: { correct:s[member.name].correct+(ok?1:0), total:s[member.name].total+1, points:(s[member.name].points||0)+pts } }));
+    const timerAdd = g.timer > 0 ? { timerSum: (scores[member.name].timerSum||0)+timeLeft, timerCount: (scores[member.name].timerCount||0)+1 } : {};
+    setScores(s => ({ ...s, [member.name]: { ...s[member.name], correct:s[member.name].correct+(ok?1:0), total:s[member.name].total+1, points:(s[member.name].points||0)+pts, ...timerAdd } }));
     // Auto-advance for young kids (no timer), or after delay for others
     if (!g.timer) { setTimeout(() => next(), ok ? 1500 : 2000); }
     else if (ok)  { setTimeout(() => next(), 1200); }
@@ -684,7 +705,7 @@ function ConfettiOnce() {
 
 function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, onHome, onSameTopic, onSetOnline, onShare }) {
   const [board, setBoard] = useState([]);
-  const [monthly, setMonthly] = useState([]);
+  const [monthly, setMonthly] = useState({pts:[],avg:[]});
   const [tab, setTab] = useState("challenge");
   const pct = fp(members, scores);
   const beat = creatorPct !== null && pct > creatorPct;
@@ -692,7 +713,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
 
   useEffect(() => {
     if (code) getChallenges(code, null).then(d => setBoard(d||[])).catch(()=>{});
-    getMonthlyBoard(null).then(d => setMonthly(d||[])).catch(()=>{});
+    getMonthlyBoard(null).then(d => setMonthly(d||{pts:[],avg:[]})).catch(()=>{});
   }, [code]);
 
   const myRank = board.findIndex(r => r.family_name===familyName) + 1;
@@ -735,21 +756,29 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
       {code && (
         <div style={C.card}>
           <div style={{ display:"flex", gap:0, marginBottom:10, background:"rgba(255,255,255,.06)", borderRadius:12, padding:3 }}>
-            {[{k:"challenge",l:"⚔️ אתגר זה"},{k:"monthly",l:"📅 החודש"}].map(({k,l}) => (
-              <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:"7px", border:"none", borderRadius:10, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:16, background:tab===k?"rgba(124,58,237,.35)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
+            {[{k:"challenge",l:"⚔️ אתגר זה"},{k:"mpts",l:"🏆 חודשי"},{k:"mavg",l:"⭐ איכות"}].map(({k,l}) => (
+              <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:"7px", border:"none", borderRadius:10, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:14, background:tab===k?"rgba(124,58,237,.35)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
             ))}
           </div>
-          {(tab==="challenge"?board:monthly).slice(0,8).map((r,i) => {
-            const isMe = r.family_name===familyName;
-            return (
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", marginBottom:5, background:isMe?"rgba(167,139,250,.15)":"rgba(255,255,255,.03)", borderRadius:12, border:`1px solid ${isMe?"#a78bfa44":"transparent"}` }}>
-                <span style={{ fontSize:19, minWidth:22 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>
-                <span style={{ flex:1, color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:17 }}>{r.family_name}{isMe?" ← אתם":""}</span>
-                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:17 }}>{tab==="challenge"?`${r.family_pct}%`:`${r.weekly_points}נק'`}</span>
-              </div>
-            );
-          })}
-          {(tab==="challenge"?board:monthly).length===0&&<div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:17, padding:"12px 0" }}>אתם הראשונים! 🎉</div>}
+          {(() => {
+            const rows = tab==="challenge" ? board : tab==="mpts" ? monthly.pts : monthly.avg;
+            const getVal = (r) => tab==="challenge" ? r.family_pct+"%" : tab==="mpts" ? r.monthly_points+"נק'" : r.monthly_avg+"%";
+            const getSub = (r) => tab==="mavg" ? `(${r.monthly_games||0} משחקים)` : "";
+            return (rows||[]).slice(0,8).map((r,i) => {
+              const isMe = r.family_name===familyName;
+              return (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", marginBottom:5, background:isMe?"rgba(167,139,250,.15)":"rgba(255,255,255,.03)", borderRadius:12, border:`1px solid ${isMe?"#a78bfa44":"transparent"}` }}>
+                  <span style={{ fontSize:19, minWidth:22 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:16 }}>{r.family_name}{isMe?" ← אתם":""}</div>
+                    {getSub(r)&&<div style={{ color:"#475569", fontSize:12 }}>{getSub(r)}</div>}
+                  </div>
+                  <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:17 }}>{getVal(r)}</span>
+                </div>
+              );
+            });
+          })()}
+          {(tab==="challenge"?board:tab==="mpts"?monthly.pts:monthly.avg).length===0&&<div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:17, padding:"12px 0" }}>אתם הראשונים! 🎉</div>}
         </div>
       )}
 
@@ -828,16 +857,17 @@ export default function App() {
   const handleFinish = async (s) => {
     setScores(s);
     const pct = fp(family.members, s);
+    const rawScore = calcRawScore(family.members, s);
     if (isChallenger) {
       await saveChallenge(code, family.name, pct, null);
-      await upsertScore(family.name, pct, null);
+      await upsertScore(family.name, rawScore, pct, null);
       setScreen("results");
     } else {
       const newCode = makeCode();
       setCode(newCode);
       await saveQuizRoom(newCode, topic, quizData, family.name, pct, null);
       await saveChallenge(newCode, family.name, pct, null);
-      await upsertScore(family.name, pct, null);
+      await upsertScore(family.name, rawScore, pct, null);
       setScreen("share");
     }
   };
