@@ -52,10 +52,10 @@ async function registerFamily(name, pin, setOnline) {
   }, { ok: false, error: "שגיאת תקשורת" }, setOnline);
 }
 
-async function saveQuizRoom(code, topic, questionsData, familyName, familyPct, setOnline) {
+async function saveQuizRoom(code, topic, familyName, familyPct, setOnline) {
   return sbSafe(() => sbFetch("quiz_rooms", {
     method: "POST", prefer: "return=minimal",
-    body: JSON.stringify({ code, topic, questions: questionsData, creator_family: familyName, creator_pct: familyPct, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }),
+    body: JSON.stringify({ code, topic, creator_family: familyName, creator_pct: familyPct, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }),
   }), null, setOnline);
 }
 
@@ -129,7 +129,7 @@ async function upsertScore(familyName, rawScore, pct, setOnline) {
 // ─── WIKIPEDIA ────────────────────────────────────────────────────────────────
 const ag = (age) => {
   if (age <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 5,  timer: 0,  bonus: false };
-  if (age <= 8)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 30, bonus: false };
+  if (age <= 9)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 0,  bonus: false };
   if (age <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 8,  timer: 20, bonus: true  };
   return              { label: "מתקדם",  color: "#a78bfa", emoji: "🔥", qCount: 8,  timer: 15, bonus: true  };
 };
@@ -160,7 +160,7 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     return             `${m.name} (גיל ${m.age}): שאלות מאתגרות עם פרטים ספציפיים מהטקסט.`;
   }).join("\n");
   const example = '{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}';
-  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים: 1. שאלות בעברית רק מהטקסט. 2. אל תחזור על אותה שאלה. 3. לכל שאלה emoji. 4. וודא שה-correct_index נכון עובדתית. 5. החזר JSON בלבד:\n" + example;
+  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים: 1. שאלות בעברית רק מהטקסט — אל תמציא עובדות. 2. אל תחזור על אותה שאלה. 3. לכל שאלה emoji. 4. וודא שה-correct_index נכון עובדתית. 5. אל תשאל על המשתתפים עצמם — רק על הנושא. 6. אם יש מספרים בטקסט — ציין במדויק. 7. החזר JSON בלבד:\n" + example;
   const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -495,21 +495,29 @@ function TopicPicker({ onStart }) {
 }
 
 // ─── SCREEN: EDIT FAMILY ──────────────────────────────────────────────────────
-function EditFamilyScreen({ family, onSave, onBack }) {
+function EditFamilyScreen({ family, onSave, onBack, onDelete }) {
   const [members, setMembers] = useState(family.members.map(m => ({ ...m, age: String(m.age) })));
+  const [familyName, setFamilyName] = useState(family.name);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const upd = (i,f,v) => setMembers(m => m.map((x,j) => j===i ? {...x,[f]:v} : x));
 
   const save = () => {
     const valid = members.filter(m => m.name.trim() && m.age);
-    if (!valid.length) return;
-    onSave({ ...family, members: valid.map(m => ({ name:m.name.trim(), age:parseInt(m.age) })) });
+    if (!valid.length || !familyName.trim()) return;
+    onSave({ ...family, name: familyName.trim(), members: valid.map(m => ({ name:m.name.trim(), age:parseInt(m.age) })) });
   };
 
   return (
     <div style={{ animation:"slideIn .4s ease" }}>
       <button onClick={onBack} style={{ background:"none", border:"none", color:"#64748b", cursor:"pointer", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:12, padding:0 }}>← חזרה</button>
       <div style={C.card}>
-        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:14 }}>✏️ עדכון הרכב המשפחה</div>
+        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:14 }}>✏️ עדכון הקבוצה</div>
+        <div style={{ marginBottom:14 }}>
+          <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 11vw, 18px)", marginBottom:6 }}>שם הקבוצה</div>
+          <input value={familyName} onChange={e=>setFamilyName(e.target.value)} placeholder="שם הקבוצה"
+            style={{ ...C.inp, marginBottom:0 }}
+            onFocus={e=>e.target.style.borderColor="#fbbf24"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"} />
+        </div>
         <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 14px" }}>ילד גדל? נולד תינוק? הצטרף סב/סבתא? עדכנו כאן.</p>
         {members.map((m,i) => {
           const g = m.age ? ag(parseInt(m.age)) : null;
@@ -528,6 +536,17 @@ function EditFamilyScreen({ family, onSave, onBack }) {
         })}
         <button onClick={() => setMembers(m=>[...m,{name:"",age:""}])} style={{ background:"rgba(255,255,255,.04)", border:"1px dashed rgba(255,255,255,.15)", borderRadius:12, padding:"9px", color:"#475569", cursor:"pointer", width:"100%", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", marginTop:4, marginBottom:14 }}>+ הוסף משתתף</button>
         <button onClick={save} style={C.btnP}>💾 שמור שינויים</button>
+        {!confirmDelete ? (
+          <button onClick={()=>setConfirmDelete(true)} style={{ ...C.btnS, color:"#f87171", marginTop:8 }}>🗑️ מחק קבוצה</button>
+        ) : (
+          <div style={{ background:"rgba(239,68,68,.1)", border:"1px solid #ef444466", borderRadius:14, padding:"12px", marginTop:8, textAlign:"center" }}>
+            <div style={{ color:"#f87171", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 18px)", marginBottom:10 }}>בטוח? כל הנתונים יימחקו</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={onDelete} style={{ ...C.btnP, background:"linear-gradient(135deg,#dc2626,#b91c1c)", flex:1, marginBottom:0 }}>כן, מחק</button>
+              <button onClick={()=>setConfirmDelete(false)} style={{ ...C.btnS, flex:1, marginBottom:0 }}>ביטול</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -712,6 +731,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   const msg = pct>=85?"🏆 משפחת אלופים!":pct>=65?"🌟 כל הכבוד!":"💪 ניסיון מצוין!";
 
   useEffect(() => {
+    setBoard([]); setMonthly({pts:[],avg:[]});
     if (code) getChallenges(code, null).then(d => setBoard(d||[])).catch(()=>{});
     getMonthlyBoard(null).then(d => setMonthly(d||{pts:[],avg:[]})).catch(()=>{});
   }, [code]);
@@ -719,7 +739,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   const myRank = board.findIndex(r => r.family_name===familyName) + 1;
 
   return (
-    <div style={{ animation:"slideIn .5s ease" }}>
+    <div style={{ animation:"slideIn .5s ease" }} key="results-screen">
       <ConfettiOnce />
       <div style={{ ...C.card, textAlign:"center", marginBottom:14 }}>
         <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:8, animation:"bounce 1s ease infinite" }}>{pct>=85?"🏆":pct>=65?"🌟":"💪"}</div>
@@ -734,7 +754,12 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
 
       <div style={C.card}>
         <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(19px, 14vw, 25px)", marginBottom:10 }}>🎖️ גיבורי המשפחה</div>
-        {[...members].sort((a,b) => (scores[b.name]?.points||0)-(scores[a.name]?.points||0)).map((m,i) => {
+        {[...members].sort((a,b) => {
+          const pa = scores[a.name]; const pb = scores[b.name];
+          const pctA = pa?.total ? pa.correct/pa.total : 0;
+          const pctB = pb?.total ? pb.correct/pb.total : 0;
+          return pctB - pctA;
+        }).map((m,i) => {
           const g=ag(m.age); const s=scores[m.name]; const p=s.total?Math.round(s.correct/s.total*100):0;
           return (
             <div key={m.name} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8, padding:"12px", background:"rgba(255,255,255,.04)", borderRadius:14, border:`1px solid ${g.color}33` }}>
@@ -822,12 +847,43 @@ export default function App() {
   const [sbOnline, setSbOnline]         = useState(true);
   const [beatenBy, setBeatenBy]   = useState(null); // {name, score} של מי שעקף
 
-  // boot: check localStorage
+  // boot: check localStorage + URL code
   useEffect(() => {
     const saved = getFamily();
-    if (saved) { setFamily(saved); setScreen("home"); }
-    else setScreen("welcome");
+    const urlCode = new URLSearchParams(window.location.search).get("code");
+    if (saved) {
+      setFamily(saved);
+      if (urlCode) {
+        // יש קוד ב-URL — הצטרף אוטומטית
+        setTimeout(() => handleJoinWithFamily(saved, urlCode), 100);
+      } else {
+        setScreen("home");
+      }
+    } else {
+      if (urlCode) setCode(urlCode); // שמור קוד לאחרי הרשמה
+      setScreen("welcome");
+    }
   }, []);
+
+  const handleJoinWithFamily = async (fam, c) => {
+    const stop = startLoad();
+    try {
+      const room = await loadQuizByCode(c, setSbOnline);
+      if (!room) { stop(); setError(`לא נמצא חידון עם קוד ${c}`); setScreen("home"); return; }
+      const played = await hasPlayedQuiz(c, fam.name, setSbOnline);
+      if (played) {
+        stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setScreen("alreadyPlayed"); return;
+      }
+      // צור שאלות מותאמות לגילאי המשפחה המצטרפת
+      const wiki = await fetchWiki(room.topic);
+      const seed = Math.random().toString(36).slice(2,8);
+      const data = await generateQuestions(wiki.text, wiki.lang, fam.members, seed);
+      stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
+      setQuizData(data); setIsChallenger(true); setScreen("quiz");
+      // נקה URL
+      window.history.replaceState({}, "", window.location.pathname);
+    } catch(e) { stop(); setError("שגיאה בטעינת החידון"); setScreen("home"); }
+  };
 
   const startLoad = () => {
     setScreen("loading"); setError("");
@@ -864,8 +920,13 @@ export default function App() {
         return;
       }
 
+      // צור שאלות מותאמות לגילאי המשפחה המצטרפת
+      const wiki = await fetchWiki(room.topic);
+      const seed = Math.random().toString(36).slice(2,8);
+      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
-      setQuizData(room.questions); setIsChallenger(true); setScreen("quiz");
+      setQuizData(data); setIsChallenger(true); setScreen("quiz");
+      window.history.replaceState({}, "", window.location.pathname);
     } catch(e) { stop(); setError("שגיאה בטעינת החידון"); setScreen("home"); }
   };
 
@@ -882,7 +943,7 @@ export default function App() {
     } else {
       const newCode = makeCode();
       setCode(newCode);
-      await saveQuizRoom(newCode, topic, quizData, family.name, pct, null);
+      await saveQuizRoom(newCode, topic, family.name, pct, null);
       await saveChallenge(newCode, family.name, pct, null);
       await upsertScore(family.name, rawScore, pct, null);
       // בדוק אם יש מישהו עם ציון גבוה יותר באתגר
@@ -917,8 +978,13 @@ export default function App() {
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
 
-  const handleWelcomeDone = (f) => { setFamily(f); setScreen("home"); };
+  const handleWelcomeDone = (f) => {
+    setFamily(f);
+    if (code) { setTimeout(() => handleJoinWithFamily(f, code), 100); }
+    else setScreen("home");
+  };
   const handleEditSave = (f) => { saveFamily(f); setFamily(f); setScreen("home"); };
+  const handleDeleteFamily = () => { clearFamily(); setFamily(null); setScreen("welcome"); };
   const handleLogout = () => { clearFamily(); setFamily(null); setScreen("welcome"); };
 
   if (screen === "boot") return <div style={{ minHeight:"100vh", background:"#05050f" }} />;
@@ -956,7 +1022,7 @@ export default function App() {
         <div style={{ width:"100%", maxWidth:900 }}>
           {screen==="welcome"      && <WelcomeScreen onDone={handleWelcomeDone} />}
           {screen==="home"         && family && <HomeScreen family={family} onPlay={handlePlay} onJoin={handleJoin} onEditFamily={()=>setScreen("editFamily")} onLogout={handleLogout} onSetOnline={setSbOnline} />}
-          {screen==="editFamily"   && family && <EditFamilyScreen family={family} onSave={handleEditSave} onBack={()=>setScreen("home")} />}
+          {screen==="editFamily"   && family && <EditFamilyScreen family={family} onSave={handleEditSave} onBack={()=>setScreen("home")} onDelete={handleDeleteFamily} />}
           {screen==="loading"      && <LoadingScreen msg={loadMsg} emoji={te(topic)||"📖"} />}
           {screen==="alreadyPlayed"&& (
             <div style={{ ...C.card, textAlign:"center", animation:"slideIn .4s ease" }}>
