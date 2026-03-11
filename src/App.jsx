@@ -160,7 +160,7 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     return             `${m.name} (גיל ${m.age}): שאלות מאתגרות עם פרטים ספציפיים מהטקסט.`;
   }).join("\n");
   const example = '{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}';
-  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים: 1. שאלות בעברית רק מהטקסט — אל תמציא עובדות. 2. אל תחזור על אותה שאלה. 3. לכל שאלה emoji. 4. וודא שה-correct_index נכון עובדתית. 5. אל תשאל על המשתתפים עצמם — רק על הנושא. 6. אם יש מספרים בטקסט — ציין במדויק. 7. החזר JSON בלבד:\n" + example;
+  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים: 1. שאלות בעברית רק מהטקסט — אל תמציא עובדות. 2. אל תחזור על אותה שאלה — פזר נושאים שונים מהטקסט. 3. לכל שאלה emoji. 4. וודא שה-correct_index נכון עובדתית. 5. אל תשאל על המשתתפים עצמם — רק על הנושא. 6. אם יש מספרים בטקסט — ציין במדויק. 7. נסח כל שאלה בעברית תקנית וברורה — שאלה אחת ברורה עם 4 תשובות מובחנות. 8. החזר JSON בלבד:\n" + example;
   const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -176,6 +176,46 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
   try { return JSON.parse(text); } catch {}
   try { return JSON.parse(text.replace(/,\s*([\]\}])/g, "$1")); } catch {}
   throw new Error("שגיאה בפענוח תשובת ה-AI — נסו שנית");
+}
+
+// ─── QUESTION VALIDATION ─────────────────────────────────────────────────────
+async function validateQuestions(quizData, wikiText) {
+  // pass שני — בדוק שכל שאלה מבוססת על הטקסט ושה-correct_index נכון
+  const allQuestions = quizData.members.flatMap(m =>
+    m.questions.map((q, qi) => ({ member: m.name, qi, question: q.question, answers: q.answers, correct_index: q.correct_index, correct_answer: q.answers[q.correct_index] }))
+  );
+  if (!allQuestions.length) return quizData;
+
+  const list = allQuestions.map((q, i) => `${i+1}. שאלה: "${q.question}" | תשובה נכונה: "${q.correct_answer}"`).join("\n");
+  const prompt = `טקסט מקור:\n${wikiText.slice(0, 1500)}\n\nרשימת שאלות ותשובות:\n${list}\n\nבדוק כל שאלה: האם התשובה הנכונה מופיעה או נובעת מהטקסט? החזר JSON בלבד, מערך של מספרי השאלות הבעייתיות (שאינן מבוססות על הטקסט): {"invalid":[1,3,5]} — אם הכל תקין: {"invalid":[]}`;
+
+  try {
+    const res = await fetch("/api/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 300, messages: [{ role: "user", content: prompt }] }),
+    });
+    const data = await res.json();
+    const raw = (data.content?.[0]?.text || "").trim();
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return quizData;
+    const result = JSON.parse(match[0]);
+    const invalidSet = new Set((result.invalid || []).map(n => n - 1)); // 0-indexed
+    if (!invalidSet.size) return quizData;
+
+    // הסר שאלות בעייתיות
+    let globalIdx = 0;
+    const cleaned = {
+      ...quizData,
+      members: quizData.members.map(m => ({
+        ...m,
+        questions: m.questions.filter(() => !invalidSet.has(globalIdx++))
+      }))
+    };
+    return cleaned;
+  } catch {
+    return quizData; // אם הvalidation נכשל — השתמש בשאלות המקוריות
+  }
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -586,7 +626,11 @@ function QuizScreen({ quizData, members, onFinish }) {
   const [scores, setScores] = useState(() => Object.fromEntries(members.map(m => [m.name, {correct:0,total:0,points:0,timerSum:0,timerCount:0}])));
   const [timeLeft, setTimeLeft] = useState(0);
 
-  if (ti >= turns.length) { onFinish(scores); return null; }
+  const finished = ti >= turns.length;
+  useEffect(() => {
+    if (finished) onFinish(scores);
+  }, [finished]);
+  if (finished) return null;
   const { member, question } = turns[ti];
   const g = ag(member.age);
   const progress = Math.round(ti / turns.length * 100);
@@ -878,8 +922,9 @@ export default function App() {
       const wiki = await fetchWiki(room.topic);
       const seed = Math.random().toString(36).slice(2,8);
       const data = await generateQuestions(wiki.text, wiki.lang, fam.members, seed);
+      const validated = await validateQuestions(data, wiki.text);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
-      setQuizData(data); setIsChallenger(true); setScreen("quiz");
+      setQuizData(validated); setIsChallenger(true); setScreen("quiz");
       // נקה URL
       window.history.replaceState({}, "", window.location.pathname);
     } catch(e) { stop(); setError("שגיאה בטעינת החידון"); setScreen("home"); }
@@ -899,7 +944,8 @@ export default function App() {
       const wiki = await fetchWiki(t);
       const seed = Math.random().toString(36).slice(2,8);
       const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed);
-      stop(); setQuizData(data); setScreen("quiz");
+      const validated = await validateQuestions(data, wiki.text);
+      stop(); setQuizData(validated); setScreen("quiz");
     } catch(e) { stop(); setError(e.message||"שגיאה"); setScreen("home"); }
   };
 
@@ -924,8 +970,9 @@ export default function App() {
       const wiki = await fetchWiki(room.topic);
       const seed = Math.random().toString(36).slice(2,8);
       const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed);
+      const validated = await validateQuestions(data, wiki.text);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
-      setQuizData(data); setIsChallenger(true); setScreen("quiz");
+      setQuizData(validated); setIsChallenger(true); setScreen("quiz");
       window.history.replaceState({}, "", window.location.pathname);
     } catch(e) { stop(); setError("שגיאה בטעינת החידון"); setScreen("home"); }
   };
@@ -960,7 +1007,8 @@ export default function App() {
       const wiki = await fetchWiki(topic);
       const seed = Math.random().toString(36).slice(2,8);
       const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed);
-      stop(); setQuizData(data); setIsChallenger(false); setCreatorPct(null); setScreen("quiz");
+      const validated = await validateQuestions(data, wiki.text);
+      stop(); setQuizData(validated); setIsChallenger(false); setCreatorPct(null); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
 
