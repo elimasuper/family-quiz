@@ -120,17 +120,18 @@ async function hasPlayedQuiz(code, familyName, setOnline) {
 
 function calcBadges(scores, members, isChampion=false, streak=0) {
   const badges = [];
-  const pct = members.length ? Math.round(members.reduce((s,m) => {
+  const validMembers = (members||[]).filter(m => m && m.name && m.age != null);
+  if (!validMembers.length) return badges;
+  const pct = Math.round(validMembers.reduce((s,m) => {
     const sc = scores[m.name]; return s + (sc?.total ? sc.correct/sc.total*100 : 0);
-  }, 0) / members.length) : 0;
+  }, 0) / validMembers.length);
   if (pct === 100) badges.push({ emoji:"🎯", label:"מושלם!" });
   if (pct >= 90)  badges.push({ emoji:"⭐", label:"מצוין" });
   if (isChampion) badges.push({ emoji:"👑", label:"אלוף" });
-  if (streak >= 7) badges.push({ emoji:"🔥", label:`רצף ${streak} ימים` });
-  else if (streak >= 3) badges.push({ emoji:"🔥", label:`רצף ${streak}` });
-  const hasTimer = members.some(m => ag(m.age).timer > 0);
-  if (hasTimer) {
-    const timerMembers = members.filter(m => ag(m.age).timer > 0);
+  if (streak >= 7) badges.push({ emoji:"🔥", label:"רצף " + streak + " ימים" });
+  else if (streak >= 3) badges.push({ emoji:"🔥", label:"רצף " + streak });
+  const timerMembers = validMembers.filter(m => ag(m.age).timer > 0);
+  if (timerMembers.length) {
     const avgSecs = timerMembers.reduce((s,m) => s + (scores[m.name]?.timerSum||0) / Math.max(scores[m.name]?.timerCount||1,1), 0) / timerMembers.length;
     if (avgSecs >= 10) badges.push({ emoji:"⚡", label:"מהיר הבזק" });
   }
