@@ -41,15 +41,26 @@ const clearFamily = () => LS.del(FAMILY_KEY);
 const makeCode = () => String(Math.floor(1000 + Math.random() * 9000));
 const todayStr = () => new Date().toISOString().split("T")[0];
 
-async function registerFamily(name, pin, setOnline) {
+async function registerFamily(name, pin, members, setOnline) {
   return sbSafe(async () => {
     const ex = await sbFetch(`families?name=eq.${encodeURIComponent(name)}&select=name,pin`);
     if (ex && ex.length > 0) {
-      return ex[0].pin === pin ? { ok: true } : { ok: false, error: "PIN שגוי" };
+      if (ex[0].pin !== pin) return { ok: false, error: "PIN שגוי" };
+      // משפחה קיימת — טען members מה-DB
+      const full = await sbFetch(`families?name=eq.${encodeURIComponent(name)}&select=*`);
+      const dbMembers = full?.[0]?.members || [];
+      return { ok: true, members: dbMembers };
     }
-    await sbFetch("families", { method: "POST", prefer: "return=minimal", body: JSON.stringify({ name, pin, created_at: new Date().toISOString() }) });
-    return { ok: true };
+    await sbFetch("families", { method: "POST", prefer: "return=minimal", body: JSON.stringify({ name, pin, members: members||[], created_at: new Date().toISOString() }) });
+    return { ok: true, members: members||[] };
   }, { ok: false, error: "שגיאת תקשורת" }, setOnline);
+}
+
+async function updateFamilyMembers(name, pin, members, setOnline) {
+  return sbSafe(() => sbFetch(`families?name=eq.${encodeURIComponent(name)}`, {
+    method: "PATCH", prefer: "return=minimal",
+    body: JSON.stringify({ members }),
+  }), null, setOnline);
 }
 
 async function saveQuizRoom(code, topic, familyName, familyPct, setOnline) {
@@ -64,6 +75,37 @@ async function loadQuizByCode(code, setOnline) {
     const r = await sbFetch(`quiz_rooms?code=eq.${code}&select=*`);
     return r && r.length > 0 ? r[0] : null;
   }, null, setOnline);
+}
+
+async function saveFamilyChallenge(code, familyName, setOnline) {
+  return sbSafe(() => sbFetch("family_challenges", {
+    method: "POST", prefer: "return=minimal",
+    body: JSON.stringify({ family_name: familyName, challenge_code: code }),
+  }), null, setOnline);
+}
+
+async function getMyActiveChallenges(familyName, setOnline) {
+  return sbSafe(async () => {
+    const now = new Date().toISOString();
+    // קבל את כל קודי האתגרים של המשפחה
+    const fc = await sbFetch(`family_challenges?family_name=eq.${encodeURIComponent(familyName)}&select=challenge_code`);
+    if (!fc || !fc.length) return [];
+    const codes = fc.map(r => r.challenge_code);
+    // קבל את פרטי החדרים הפעילים
+    const rooms = await Promise.all(codes.map(c =>
+      sbFetch(`quiz_rooms?code=eq.${c}&expires_at=gte.${now}&select=code,topic,creator_family,creator_pct`)
+        .then(r => r && r.length ? r[0] : null).catch(() => null)
+    ));
+    const active = rooms.filter(Boolean);
+    // קבל ציונים לכל אתגר
+    const withScores = await Promise.all(active.map(async room => {
+      const challenges = await sbFetch(`quiz_challenges?code=eq.${room.code}&select=family_name,family_pct&order=family_pct.desc`).catch(() => []);
+      const myScore = (challenges||[]).find(r => r.family_name === familyName);
+      const myRank = myScore ? (challenges||[]).findIndex(r => r.family_name === familyName) + 1 : null;
+      return { ...room, challenges: challenges||[], myScore: myScore?.family_pct || null, myRank, total: (challenges||[]).length };
+    }));
+    return withScores;
+  }, [], setOnline);
 }
 
 async function saveChallenge(code, familyName, familyPct, setOnline) {
@@ -85,6 +127,26 @@ async function hasPlayedQuiz(code, familyName, setOnline) {
     const r = await sbFetch(`quiz_challenges?code=eq.${code}&family_name=eq.${encodeURIComponent(familyName)}&select=id&limit=1`);
     return r && r.length > 0;
   }, false, setOnline);
+}
+
+function calcBadges(scores, members, isChampion=false, streak=0) {
+  const badges = [];
+  const validMembers = (members||[]).filter(m => m && m.name && m.age != null);
+  if (!validMembers.length) return badges;
+  const pct = Math.round(validMembers.reduce((s,m) => {
+    const sc = scores[m.name]; return s + (sc?.total ? sc.correct/sc.total*100 : 0);
+  }, 0) / validMembers.length);
+  if (pct === 100) badges.push({ emoji:"🎯", label:"מושלם!" });
+  if (pct >= 90)  badges.push({ emoji:"⭐", label:"מצוין" });
+  if (isChampion) badges.push({ emoji:"👑", label:"אלוף" });
+  if (streak >= 7) badges.push({ emoji:"🔥", label:"רצף " + streak + " ימים" });
+  else if (streak >= 3) badges.push({ emoji:"🔥", label:"רצף " + streak });
+  const timerMembers = validMembers.filter(m => ag(m.age).timer > 0);
+  if (timerMembers.length) {
+    const avgSecs = timerMembers.reduce((s,m) => s + (scores[m.name]?.timerSum||0) / Math.max(scores[m.name]?.timerCount||1,1), 0) / timerMembers.length;
+    if (avgSecs >= 10) badges.push({ emoji:"⚡", label:"מהיר הבזק" });
+  }
+  return badges;
 }
 
 async function getMonthlyBoard(setOnline) {
@@ -128,9 +190,10 @@ async function upsertScore(familyName, rawScore, pct, setOnline) {
 
 // ─── WIKIPEDIA ────────────────────────────────────────────────────────────────
 const ag = (age) => {
-  if (age <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 5,  timer: 0,  bonus: false };
-  if (age <= 9)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 0,  bonus: false };
-  if (age <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 8,  timer: 20, bonus: true  };
+  const a = parseInt(age) || 99;
+  if (a <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 5,  timer: 0,  bonus: false };
+  if (a <= 9)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 0,  bonus: false };
+  if (a <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 8,  timer: 20, bonus: true  };
   return              { label: "מתקדם",  color: "#a78bfa", emoji: "🔥", qCount: 8,  timer: 15, bonus: true  };
 };
 
@@ -166,22 +229,37 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     return             `${m.name} (גיל ${m.age}): שאלות מאתגרות עם פרטים ספציפיים מהטקסט.`;
   }).join("\n");
   const example = '{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}';
-  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים: 1. שאלות בעברית רק מהטקסט — אל תמציא עובדות. 2. אל תחזור על אותה שאלה — פזר נושאים שונים מהטקסט. 3. לכל שאלה emoji. 4. וודא שה-correct_index נכון עובדתית. 5. אל תשאל על המשתתפים עצמם — רק על הנושא. 6. אם יש מספרים בטקסט — ציין במדויק. 7. נסח כל שאלה בעברית תקנית וברורה — שאלה אחת ברורה עם 4 תשובות מובחנות. 8. השתמש רק במילים קיימות בעברית תקנית — אל תמציא מילים חדשות. 9. החזר JSON בלבד:\n" + example;
+  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים: 1. שאלות בעברית רק מהטקסט — אל תמציא עובדות. 2. כל שאלה על נושא שונה — אל תחזור על אותו רעיון פעמיים. 3. לכל שאלה emoji רלוונטי. 4. וודא שה-correct_index נכון עובדתית. 5. אל תשאל על המשתתפים — רק על הנושא. 6. אל תשאל שאלה שהתשובה מופיעה בתוך השאלה עצמה. 7. נסח בעברית תקנית וברורה — 4 תשובות מובחנות שרק אחת נכונה. 8. השתמש רק במילים קיימות בעברית — אל תמציא מילים. 9. שאל על עובדות מעניינות ומפתיעות מהטקסט. 10. החזר JSON בלבד:\n" + example;
   const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 3000, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 3000, messages: [{ role: "user", content: prompt }] }),
   });
   const data = await res.json();
   if (data.error) throw new Error("שגיאת API: " + (data.error.message || JSON.stringify(data.error)));
   const raw = (data.content?.[0]?.text || "").trim();
   if (!raw) throw new Error("תשובה ריקה — בדוק ANTHROPIC_API_KEY ב-Vercel");
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("תגובת AI לא תקינה: " + raw.slice(0, 100));
+  // נסה למצוא JSON — Sonnet לפעמים עוטף ב-markdown
+  const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("תגובת AI לא תקינה: " + raw.slice(0, 150));
   const text = jsonMatch[0];
-  try { return JSON.parse(text); } catch {}
-  try { return JSON.parse(text.replace(/,\s*([\]\}])/g, "$1")); } catch {}
-  throw new Error("שגיאה בפענוח תשובת ה-AI — נסו שנית");
+  let parsed;
+  try { parsed = JSON.parse(text); } catch {
+    try { parsed = JSON.parse(text.replace(/,\s*([\]\}])/g, "$1")); } catch(e) {
+      throw new Error("שגיאה בפענוח JSON: " + e.message + " | " + text.slice(0, 100));
+    }
+  }
+  // ערבב תשובות — אל תסמוך על ה-AI לשים את הנכונה במקום אקראי
+  parsed.members = (parsed.members||[]).map(m => ({
+    ...m,
+    questions: (m.questions||[]).map(q => {
+      const correct = q.answers[q.correct_index];
+      const shuffled = [...q.answers].sort(() => Math.random() - 0.5);
+      return { ...q, answers: shuffled, correct_index: shuffled.indexOf(correct) };
+    })
+  }));
+  return parsed;
 }
 
 // ─── QUESTION VALIDATION ─────────────────────────────────────────────────────
@@ -199,7 +277,7 @@ async function validateQuestions(quizData, wikiText) {
     const res = await fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 300, messages: [{ role: "user", content: prompt }] }),
+      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 300, messages: [{ role: "user", content: prompt }] }),
     });
     const data = await res.json();
     const raw = (data.content?.[0]?.text || "").trim();
@@ -367,17 +445,20 @@ function WelcomeScreen({ onDone }) {
       const valid = members.filter(m => m.name.trim() && m.age);
       if (!valid.length) return setErr("נא להוסיף לפחות משתתף אחד");
       setLoading(true);
-      const res = await registerFamily(name.trim(), pin);
+      const validMembers = valid.map(m => ({ name: m.name.trim(), age: parseInt(m.age) }));
+      const res = await registerFamily(name.trim(), pin, validMembers, null);
       if (!res?.ok) { setLoading(false); return setErr(res?.error || "שגיאה"); }
-      const family = { name: name.trim(), pin, members: valid.map(m => ({ name: m.name.trim(), age: parseInt(m.age) })) };
+      const family = { name: name.trim(), pin, members: validMembers };
       saveFamily(family);
       setLoading(false);
       onDone(family);
     } else {
       setLoading(true);
-      const res = await registerFamily(name.trim(), pin);
+      const res = await registerFamily(name.trim(), pin, null, null);
       if (!res?.ok) { setLoading(false); return setErr(res?.error || "שם משפחה או PIN שגוי"); }
-      const family = { name: name.trim(), pin, members: [] };
+      const membersFromDB = (res.members||[]).map(m => ({ name: m.name, age: parseInt(m.age)||10 }));
+      if (!membersFromDB.length) { setLoading(false); return setErr("לא נמצאו פרטי משפחה — צרו קשר עם מנהל החידון"); }
+      const family = { name: name.trim(), pin, members: membersFromDB };
       saveFamily(family);
       setLoading(false);
       onDone(family);
@@ -447,8 +528,18 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
   const [code, setCode] = useState("");
   const [tab, setTab] = useState("play");
   const [monthly, setMonthly] = useState({pts:[],avg:[]});
+  const [myChallenges, setMyChallenges] = useState([]);
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [selectedChallenge, setSelectedChallenge] = useState(null);
 
   useEffect(() => { getMonthlyBoard(onSetOnline).then(d => setMonthly(d || {pts:[],avg:[]})); }, []);
+
+  useEffect(() => {
+    if (tab === "join") {
+      setChallengeLoading(true);
+      getMyActiveChallenges(family.name, onSetOnline).then(d => { setMyChallenges(d||[]); setChallengeLoading(false); });
+    }
+  }, [tab]);
 
   // detect code from URL
   useEffect(() => {
@@ -482,18 +573,89 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
       )}
 
       {tab === "join" && (
-        <div style={C.card}>
-          <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 14px" }}>קיבלתם קוד מחברים? הכניסו אותו ותתחרו!</p>
-          <label style={C.lbl}>🔑 קוד החידון</label>
-          <input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="1234" maxLength={4} type="text" inputMode="numeric"
-            style={{ ...C.inp, fontSize:"clamp(32px, 19vw, 40px)", textAlign:"center", letterSpacing:10, fontFamily:"'Fredoka One',cursive" }}
-            onFocus={e=>e.target.style.borderColor="#fbbf24"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"}
-            onKeyDown={e=>e.key==="Enter"&&code.length===4&&onJoin(code)} />
-          <button onClick={() => code.length===4&&onJoin(code)} disabled={code.length!==4}
-            style={{ ...C.btnP, opacity:code.length===4?1:0.4, background:"linear-gradient(135deg,#d97706,#b45309)" }}>
-            ⚔️ קבל את האתגר!
-          </button>
-        </div>
+        <>
+          {/* אתגרים פעילים */}
+          {challengeLoading && <div style={{ ...C.card, textAlign:"center", color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>🔍 טוען אתגרים...</div>}
+
+          {!challengeLoading && myChallenges.length > 0 && (
+            <div style={C.card}>
+              <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 22px)", marginBottom:10 }}>⚔️ האתגרים שלי</div>
+              {myChallenges.map((ch,i) => {
+                const isOpen = selectedChallenge === ch.code;
+                const daysLeft = Math.ceil((new Date(ch.expires_at||Date.now()+86400000) - new Date()) / 86400000);
+                return (
+                  <div key={ch.code} style={{ marginBottom:8 }}>
+                    <button onClick={() => setSelectedChallenge(isOpen ? null : ch.code)}
+                      style={{ width:"100%", background:isOpen?"rgba(167,139,250,.15)":"rgba(255,255,255,.04)", border:`1px solid ${isOpen?"#a78bfa44":"rgba(255,255,255,.08)"}`, borderRadius:14, padding:"12px", cursor:"pointer", textAlign:"right", transition:"all .2s" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        <div style={{ flex:1 }}>
+                          <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>{ch.topic}</div>
+                          <div style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", marginTop:2 }}>
+                            {ch.total} משפחות · {daysLeft} ימים נותרו
+                          </div>
+                        </div>
+                        <div style={{ textAlign:"center" }}>
+                          {ch.myRank && <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 24px)" }}>#{ch.myRank}</div>}
+                          {ch.myScore !== null && <div style={{ color:"#94a3b8", fontSize:"clamp(13px, 10vw, 15px)" }}>{ch.myScore}%</div>}
+                        </div>
+                        <div style={{ color:"#475569", fontSize:"clamp(16px, 12vw, 20px)" }}>{isOpen?"▲":"▼"}</div>
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div style={{ background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.06)", borderRadius:"0 0 14px 14px", padding:"8px 12px" }}>
+                        {(() => {
+                          const all = ch.challenges;
+                          const myIdx = all.findIndex(r => r.family_name === family.name);
+                          // טופ 3 + סביבת המשתמש
+                          const top3 = all.slice(0,3);
+                          const around = myIdx > 2 ? [
+                            ...(myIdx > 3 ? [{ family_name:"...", family_pct:null }] : []),
+                            ...(myIdx > 0 ? [all[myIdx-1]] : []),
+                            all[myIdx],
+                            ...(myIdx < all.length-1 ? [all[myIdx+1]] : []),
+                          ] : [];
+                          const rows = myIdx <= 2 ? all.slice(0, Math.min(8, all.length)) : [...top3, { family_name:"...", family_pct:null }, ...around];
+                          return rows.map((r,ri) => {
+                            if (r.family_name === "...") return <div key={ri} style={{ color:"#334155", textAlign:"center", padding:"4px", fontFamily:"'Varela Round',sans-serif" }}>···</div>;
+                            const isMe = r.family_name === family.name;
+                            const rank = all.findIndex(x => x.family_name === r.family_name) + 1;
+                            return (
+                              <div key={ri} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 8px", marginBottom:4, background:isMe?"rgba(167,139,250,.15)":"transparent", borderRadius:10, border:`1px solid ${isMe?"#a78bfa44":"transparent"}` }}>
+                                <span style={{ fontSize:"clamp(16px, 12vw, 20px)", minWidth:22 }}>{rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":`${rank}.`}</span>
+                                <span style={{ flex:1, color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 18px)" }}>{r.family_name}{isMe?" ← אתם":""}</span>
+                                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.family_pct}%</span>
+                              </div>
+                            );
+                          });
+                        })()}
+                        {ch.creator_family === family.name && (
+                          <button onClick={() => { const url=`${window.location.origin}${window.location.pathname}?code=${ch.code}`; navigator.share?navigator.share({title:"חידון המשפחה",text:`אתגר על ${ch.topic}! קוד: ${ch.code}`,url}):navigator.clipboard?.writeText(url); }}
+                            style={{ ...C.btnP, background:"linear-gradient(135deg,#16a34a,#15803d)", marginTop:8, marginBottom:0, fontSize:"clamp(15px, 11vw, 18px)", padding:"10px" }}>
+                            📱 שתף שוב
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* הצטרפות בקוד */}
+          <div style={C.card}>
+            <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 14px" }}>קיבלתם קוד מחברים? הכניסו אותו ותתחרו!</p>
+            <label style={C.lbl}>🔑 קוד החידון</label>
+            <input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="1234" maxLength={4} type="text" inputMode="numeric"
+              style={{ ...C.inp, fontSize:"clamp(32px, 19vw, 40px)", textAlign:"center", letterSpacing:10, fontFamily:"'Fredoka One',cursive" }}
+              onFocus={e=>e.target.style.borderColor="#fbbf24"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"}
+              onKeyDown={e=>e.key==="Enter"&&code.length===4&&onJoin(code)} />
+            <button onClick={() => code.length===4&&onJoin(code)} disabled={code.length!==4}
+              style={{ ...C.btnP, opacity:code.length===4?1:0.4, background:"linear-gradient(135deg,#d97706,#b45309)" }}>
+              ⚔️ קבל את האתגר!
+            </button>
+          </div>
+        </>
       )}
 
       {tab === "board" && (
@@ -829,6 +991,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   const pct = fp(members, scores);
   const beat = creatorPct !== null && pct > creatorPct;
   const msg = pct>=85?"🏆 משפחת אלופים!":pct>=65?"🌟 כל הכבוד!":"💪 ניסיון מצוין!";
+  const badges = calcBadges(scores, members);
 
   useEffect(() => {
     setBoard([]); setMonthly({pts:[],avg:[]});
@@ -850,6 +1013,16 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
           <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{pct}%</div>
           {myRank>0&&<div style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", marginTop:4 }}>מקום {myRank} מבין {board.length} משפחות</div>}
         </div>
+        {badges.length > 0 && (
+          <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", marginTop:12 }}>
+            {badges.map((b,i) => (
+              <div key={i} style={{ background:"rgba(251,191,36,.12)", border:"1px solid rgba(251,191,36,.3)", borderRadius:20, padding:"5px 14px", display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ fontSize:"clamp(16px, 12vw, 20px)" }}>{b.emoji}</span>
+                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 11vw, 17px)" }}>{b.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={C.card}>
@@ -1048,6 +1221,7 @@ export default function App() {
       setCode(newCode);
       await saveQuizRoom(newCode, topic, family.name, pct, null);
       await saveChallenge(newCode, family.name, pct, null);
+      await saveFamilyChallenge(newCode, family.name, null);
       await upsertScore(family.name, rawScore, pct, null);
       // בדוק אם יש מישהו עם ציון גבוה יותר באתגר
       const challenges = await getChallenges(code || "", null).catch(()=>[]);
@@ -1087,7 +1261,11 @@ export default function App() {
     if (code) { setTimeout(() => handleJoinWithFamily(f, code), 100); }
     else setScreen("home");
   };
-  const handleEditSave = (f) => { saveFamily(f); setFamily(f); setScreen("home"); };
+  const handleEditSave = (f) => {
+    saveFamily(f); setFamily(f);
+    updateFamilyMembers(f.name, f.pin, f.members, null);
+    setScreen("home");
+  };
   const handleDeleteFamily = () => { clearFamily(); setFamily(null); setScreen("welcome"); };
   const handleLogout = () => { clearFamily(); setFamily(null); setScreen("welcome"); };
 
