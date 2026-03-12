@@ -66,6 +66,37 @@ async function loadQuizByCode(code, setOnline) {
   }, null, setOnline);
 }
 
+async function saveFamilyChallenge(code, familyName, setOnline) {
+  return sbSafe(() => sbFetch("family_challenges", {
+    method: "POST", prefer: "return=minimal",
+    body: JSON.stringify({ family_name: familyName, challenge_code: code }),
+  }), null, setOnline);
+}
+
+async function getMyActiveChallenges(familyName, setOnline) {
+  return sbSafe(async () => {
+    const now = new Date().toISOString();
+    // קבל את כל קודי האתגרים של המשפחה
+    const fc = await sbFetch(`family_challenges?family_name=eq.${encodeURIComponent(familyName)}&select=challenge_code`);
+    if (!fc || !fc.length) return [];
+    const codes = fc.map(r => r.challenge_code);
+    // קבל את פרטי החדרים הפעילים
+    const rooms = await Promise.all(codes.map(c =>
+      sbFetch(`quiz_rooms?code=eq.${c}&expires_at=gte.${now}&select=code,topic,creator_family,creator_pct`)
+        .then(r => r && r.length ? r[0] : null).catch(() => null)
+    ));
+    const active = rooms.filter(Boolean);
+    // קבל ציונים לכל אתגר
+    const withScores = await Promise.all(active.map(async room => {
+      const challenges = await sbFetch(`quiz_challenges?code=eq.${room.code}&select=family_name,family_pct&order=family_pct.desc`).catch(() => []);
+      const myScore = (challenges||[]).find(r => r.family_name === familyName);
+      const myRank = myScore ? (challenges||[]).findIndex(r => r.family_name === familyName) + 1 : null;
+      return { ...room, challenges: challenges||[], myScore: myScore?.family_pct || null, myRank, total: (challenges||[]).length };
+    }));
+    return withScores;
+  }, [], setOnline);
+}
+
 async function saveChallenge(code, familyName, familyPct, setOnline) {
   return sbSafe(() => sbFetch("quiz_challenges", {
     method: "POST", prefer: "return=minimal",
@@ -85,6 +116,25 @@ async function hasPlayedQuiz(code, familyName, setOnline) {
     const r = await sbFetch(`quiz_challenges?code=eq.${code}&family_name=eq.${encodeURIComponent(familyName)}&select=id&limit=1`);
     return r && r.length > 0;
   }, false, setOnline);
+}
+
+function calcBadges(scores, members, isChampion=false, streak=0) {
+  const badges = [];
+  const pct = members.length ? Math.round(members.reduce((s,m) => {
+    const sc = scores[m.name]; return s + (sc?.total ? sc.correct/sc.total*100 : 0);
+  }, 0) / members.length) : 0;
+  if (pct === 100) badges.push({ emoji:"🎯", label:"מושלם!" });
+  if (pct >= 90)  badges.push({ emoji:"⭐", label:"מצוין" });
+  if (isChampion) badges.push({ emoji:"👑", label:"אלוף" });
+  if (streak >= 7) badges.push({ emoji:"🔥", label:`רצף ${streak} ימים` });
+  else if (streak >= 3) badges.push({ emoji:"🔥", label:`רצף ${streak}` });
+  const hasTimer = members.some(m => ag(m.age).timer > 0);
+  if (hasTimer) {
+    const timerMembers = members.filter(m => ag(m.age).timer > 0);
+    const avgSecs = timerMembers.reduce((s,m) => s + (scores[m.name]?.timerSum||0) / Math.max(scores[m.name]?.timerCount||1,1), 0) / timerMembers.length;
+    if (avgSecs >= 10) badges.push({ emoji:"⚡", label:"מהיר הבזק" });
+  }
+  return badges;
 }
 
 async function getMonthlyBoard(setOnline) {
@@ -447,8 +497,18 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
   const [code, setCode] = useState("");
   const [tab, setTab] = useState("play");
   const [monthly, setMonthly] = useState({pts:[],avg:[]});
+  const [myChallenges, setMyChallenges] = useState([]);
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [selectedChallenge, setSelectedChallenge] = useState(null);
 
   useEffect(() => { getMonthlyBoard(onSetOnline).then(d => setMonthly(d || {pts:[],avg:[]})); }, []);
+
+  useEffect(() => {
+    if (tab === "join") {
+      setChallengeLoading(true);
+      getMyActiveChallenges(family.name, onSetOnline).then(d => { setMyChallenges(d||[]); setChallengeLoading(false); });
+    }
+  }, [tab]);
 
   // detect code from URL
   useEffect(() => {
@@ -482,18 +542,89 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
       )}
 
       {tab === "join" && (
-        <div style={C.card}>
-          <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 14px" }}>קיבלתם קוד מחברים? הכניסו אותו ותתחרו!</p>
-          <label style={C.lbl}>🔑 קוד החידון</label>
-          <input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="1234" maxLength={4} type="text" inputMode="numeric"
-            style={{ ...C.inp, fontSize:"clamp(32px, 19vw, 40px)", textAlign:"center", letterSpacing:10, fontFamily:"'Fredoka One',cursive" }}
-            onFocus={e=>e.target.style.borderColor="#fbbf24"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"}
-            onKeyDown={e=>e.key==="Enter"&&code.length===4&&onJoin(code)} />
-          <button onClick={() => code.length===4&&onJoin(code)} disabled={code.length!==4}
-            style={{ ...C.btnP, opacity:code.length===4?1:0.4, background:"linear-gradient(135deg,#d97706,#b45309)" }}>
-            ⚔️ קבל את האתגר!
-          </button>
-        </div>
+        <>
+          {/* אתגרים פעילים */}
+          {challengeLoading && <div style={{ ...C.card, textAlign:"center", color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>🔍 טוען אתגרים...</div>}
+
+          {!challengeLoading && myChallenges.length > 0 && (
+            <div style={C.card}>
+              <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 22px)", marginBottom:10 }}>⚔️ האתגרים שלי</div>
+              {myChallenges.map((ch,i) => {
+                const isOpen = selectedChallenge === ch.code;
+                const daysLeft = Math.ceil((new Date(ch.expires_at||Date.now()+86400000) - new Date()) / 86400000);
+                return (
+                  <div key={ch.code} style={{ marginBottom:8 }}>
+                    <button onClick={() => setSelectedChallenge(isOpen ? null : ch.code)}
+                      style={{ width:"100%", background:isOpen?"rgba(167,139,250,.15)":"rgba(255,255,255,.04)", border:`1px solid ${isOpen?"#a78bfa44":"rgba(255,255,255,.08)"}`, borderRadius:14, padding:"12px", cursor:"pointer", textAlign:"right", transition:"all .2s" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        <div style={{ flex:1 }}>
+                          <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>{ch.topic}</div>
+                          <div style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", marginTop:2 }}>
+                            {ch.total} משפחות · {daysLeft} ימים נותרו
+                          </div>
+                        </div>
+                        <div style={{ textAlign:"center" }}>
+                          {ch.myRank && <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 24px)" }}>#{ch.myRank}</div>}
+                          {ch.myScore !== null && <div style={{ color:"#94a3b8", fontSize:"clamp(13px, 10vw, 15px)" }}>{ch.myScore}%</div>}
+                        </div>
+                        <div style={{ color:"#475569", fontSize:"clamp(16px, 12vw, 20px)" }}>{isOpen?"▲":"▼"}</div>
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div style={{ background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.06)", borderRadius:"0 0 14px 14px", padding:"8px 12px" }}>
+                        {(() => {
+                          const all = ch.challenges;
+                          const myIdx = all.findIndex(r => r.family_name === family.name);
+                          // טופ 3 + סביבת המשתמש
+                          const top3 = all.slice(0,3);
+                          const around = myIdx > 2 ? [
+                            ...(myIdx > 3 ? [{ family_name:"...", family_pct:null }] : []),
+                            ...(myIdx > 0 ? [all[myIdx-1]] : []),
+                            all[myIdx],
+                            ...(myIdx < all.length-1 ? [all[myIdx+1]] : []),
+                          ] : [];
+                          const rows = myIdx <= 2 ? all.slice(0, Math.min(8, all.length)) : [...top3, { family_name:"...", family_pct:null }, ...around];
+                          return rows.map((r,ri) => {
+                            if (r.family_name === "...") return <div key={ri} style={{ color:"#334155", textAlign:"center", padding:"4px", fontFamily:"'Varela Round',sans-serif" }}>···</div>;
+                            const isMe = r.family_name === family.name;
+                            const rank = all.findIndex(x => x.family_name === r.family_name) + 1;
+                            return (
+                              <div key={ri} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 8px", marginBottom:4, background:isMe?"rgba(167,139,250,.15)":"transparent", borderRadius:10, border:`1px solid ${isMe?"#a78bfa44":"transparent"}` }}>
+                                <span style={{ fontSize:"clamp(16px, 12vw, 20px)", minWidth:22 }}>{rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":`${rank}.`}</span>
+                                <span style={{ flex:1, color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 18px)" }}>{r.family_name}{isMe?" ← אתם":""}</span>
+                                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.family_pct}%</span>
+                              </div>
+                            );
+                          });
+                        })()}
+                        {ch.creator_family === family.name && (
+                          <button onClick={() => { const url=`${window.location.origin}${window.location.pathname}?code=${ch.code}`; navigator.share?navigator.share({title:"חידון המשפחה",text:`אתגר על ${ch.topic}! קוד: ${ch.code}`,url}):navigator.clipboard?.writeText(url); }}
+                            style={{ ...C.btnP, background:"linear-gradient(135deg,#16a34a,#15803d)", marginTop:8, marginBottom:0, fontSize:"clamp(15px, 11vw, 18px)", padding:"10px" }}>
+                            📱 שתף שוב
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* הצטרפות בקוד */}
+          <div style={C.card}>
+            <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 14px" }}>קיבלתם קוד מחברים? הכניסו אותו ותתחרו!</p>
+            <label style={C.lbl}>🔑 קוד החידון</label>
+            <input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="1234" maxLength={4} type="text" inputMode="numeric"
+              style={{ ...C.inp, fontSize:"clamp(32px, 19vw, 40px)", textAlign:"center", letterSpacing:10, fontFamily:"'Fredoka One',cursive" }}
+              onFocus={e=>e.target.style.borderColor="#fbbf24"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"}
+              onKeyDown={e=>e.key==="Enter"&&code.length===4&&onJoin(code)} />
+            <button onClick={() => code.length===4&&onJoin(code)} disabled={code.length!==4}
+              style={{ ...C.btnP, opacity:code.length===4?1:0.4, background:"linear-gradient(135deg,#d97706,#b45309)" }}>
+              ⚔️ קבל את האתגר!
+            </button>
+          </div>
+        </>
       )}
 
       {tab === "board" && (
@@ -829,6 +960,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   const pct = fp(members, scores);
   const beat = creatorPct !== null && pct > creatorPct;
   const msg = pct>=85?"🏆 משפחת אלופים!":pct>=65?"🌟 כל הכבוד!":"💪 ניסיון מצוין!";
+  const badges = calcBadges(scores, members);
 
   useEffect(() => {
     setBoard([]); setMonthly({pts:[],avg:[]});
@@ -850,6 +982,16 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
           <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{pct}%</div>
           {myRank>0&&<div style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", marginTop:4 }}>מקום {myRank} מבין {board.length} משפחות</div>}
         </div>
+        {badges.length > 0 && (
+          <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", marginTop:12 }}>
+            {badges.map((b,i) => (
+              <div key={i} style={{ background:"rgba(251,191,36,.12)", border:"1px solid rgba(251,191,36,.3)", borderRadius:20, padding:"5px 14px", display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ fontSize:"clamp(16px, 12vw, 20px)" }}>{b.emoji}</span>
+                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 11vw, 17px)" }}>{b.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={C.card}>
@@ -1048,6 +1190,7 @@ export default function App() {
       setCode(newCode);
       await saveQuizRoom(newCode, topic, family.name, pct, null);
       await saveChallenge(newCode, family.name, pct, null);
+      await saveFamilyChallenge(newCode, family.name, null);
       await upsertScore(family.name, rawScore, pct, null);
       // בדוק אם יש מישהו עם ציון גבוה יותר באתגר
       const challenges = await getChallenges(code || "", null).catch(()=>[]);
