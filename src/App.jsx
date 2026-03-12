@@ -229,11 +229,11 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     return             `${m.name} (גיל ${m.age}): שאלות מאתגרות עם פרטים ספציפיים מהטקסט.`;
   }).join("\n");
   const example = '{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}';
-  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים: 0. אל תשתמש בגרשיים (") בתוך טקסט השאלות והתשובות — השתמש בגרש בודד (') אם נדרש. 1. שאלות בעברית רק מהטקסט — אל תמציא עובדות. 2. כל שאלה על נושא שונה — אל תחזור על אותו רעיון פעמיים. 3. לכל שאלה emoji רלוונטי. 4. וודא שה-correct_index נכון עובדתית. 5. אל תשאל על המשתתפים — רק על הנושא. 6. אל תשאל שאלה שהתשובה מופיעה בתוך השאלה עצמה. 7. נסח בעברית תקנית וברורה — 4 תשובות מובחנות שרק אחת נכונה. 8. השתמש רק במילים קיימות בעברית — אל תמציא מילים. 9. שאל על עובדות מעניינות ומפתיעות מהטקסט. 10. החזר JSON בלבד:\n" + example;
+  const prompt = "טקסט ויקיפדיה:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים: 1. שאלות בעברית רק מהטקסט — אל תמציא עובדות. 2. כל שאלה על נושא שונה — אל תחזור על אותו רעיון פעמיים. 3. לכל שאלה emoji רלוונטי. 4. וודא שה-correct_index נכון עובדתית. 5. אל תשאל על המשתתפים — רק על הנושא. 6. אל תשאל שאלה שהתשובה מופיעה בתוך השאלה עצמה. 7. נסח בעברית תקנית וברורה — 4 תשובות מובחנות שרק אחת נכונה. 8. השתמש רק במילים קיימות בעברית — אל תמציא מילים. 9. שאל על עובדות מעניינות ומפתיעות מהטקסט. 10. החזר JSON בלבד:\n" + example;
   const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 4000, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 3000, messages: [{ role: "user", content: prompt }] }),
   });
   const data = await res.json();
   if (data.error) throw new Error("שגיאת API: " + (data.error.message || JSON.stringify(data.error)));
@@ -245,22 +245,11 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
   if (!jsonMatch) throw new Error("תגובת AI לא תקינה: " + raw.slice(0, 150));
   const text = jsonMatch[0];
   let parsed;
-  const tryParse = (t) => {
-    try { return JSON.parse(t); } catch {}
-    // תקן trailing commas
-    try { return JSON.parse(t.replace(/,\s*([\]\}])/g, "$1")); } catch {}
-    // תקן גרשיים בתוך strings עבריים — החלף " פנימי ב-'
-    try {
-      const fixed = t.replace(/:[ ]*"((?:[^"\\]|\\.)*)"/g, (match, val) => {
-        const cleaned = val.replace(/(?<!\\)"/g, "'");
-        return ': "' + cleaned + '"';
-      });
-      return JSON.parse(fixed);
-    } catch {}
-    return null;
-  };
-  parsed = tryParse(text);
-  if (!parsed) throw new Error("שגיאה בפענוח JSON — נסו שנית");
+  try { parsed = JSON.parse(text); } catch {
+    try { parsed = JSON.parse(text.replace(/,\s*([\]\}])/g, "$1")); } catch(e) {
+      throw new Error("שגיאה בפענוח JSON: " + e.message + " | " + text.slice(0, 100));
+    }
+  }
   // ערבב תשובות — אל תסמוך על ה-AI לשים את הנכונה במקום אקראי
   parsed.members = (parsed.members||[]).map(m => ({
     ...m,
@@ -288,7 +277,7 @@ async function validateQuestions(quizData, wikiText) {
     const res = await fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 300, messages: [{ role: "user", content: prompt }] }),
+      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 300, messages: [{ role: "user", content: prompt }] }),
     });
     const data = await res.json();
     const raw = (data.content?.[0]?.text || "").trim();
