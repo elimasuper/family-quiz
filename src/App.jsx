@@ -41,15 +41,26 @@ const clearFamily = () => LS.del(FAMILY_KEY);
 const makeCode = () => String(Math.floor(1000 + Math.random() * 9000));
 const todayStr = () => new Date().toISOString().split("T")[0];
 
-async function registerFamily(name, pin, setOnline) {
+async function registerFamily(name, pin, members, setOnline) {
   return sbSafe(async () => {
     const ex = await sbFetch(`families?name=eq.${encodeURIComponent(name)}&select=name,pin`);
     if (ex && ex.length > 0) {
-      return ex[0].pin === pin ? { ok: true } : { ok: false, error: "PIN שגוי" };
+      if (ex[0].pin !== pin) return { ok: false, error: "PIN שגוי" };
+      // משפחה קיימת — טען members מה-DB
+      const full = await sbFetch(`families?name=eq.${encodeURIComponent(name)}&select=*`);
+      const dbMembers = full?.[0]?.members || [];
+      return { ok: true, members: dbMembers };
     }
-    await sbFetch("families", { method: "POST", prefer: "return=minimal", body: JSON.stringify({ name, pin, created_at: new Date().toISOString() }) });
-    return { ok: true };
+    await sbFetch("families", { method: "POST", prefer: "return=minimal", body: JSON.stringify({ name, pin, members: members||[], created_at: new Date().toISOString() }) });
+    return { ok: true, members: members||[] };
   }, { ok: false, error: "שגיאת תקשורת" }, setOnline);
+}
+
+async function updateFamilyMembers(name, pin, members, setOnline) {
+  return sbSafe(() => sbFetch(`families?name=eq.${encodeURIComponent(name)}`, {
+    method: "PATCH", prefer: "return=minimal",
+    body: JSON.stringify({ members }),
+  }), null, setOnline);
 }
 
 async function saveQuizRoom(code, topic, familyName, familyPct, setOnline) {
@@ -179,9 +190,10 @@ async function upsertScore(familyName, rawScore, pct, setOnline) {
 
 // ─── WIKIPEDIA ────────────────────────────────────────────────────────────────
 const ag = (age) => {
-  if (age <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 5,  timer: 0,  bonus: false };
-  if (age <= 9)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 0,  bonus: false };
-  if (age <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 8,  timer: 20, bonus: true  };
+  const a = parseInt(age) || 99;
+  if (a <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 5,  timer: 0,  bonus: false };
+  if (a <= 9)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 0,  bonus: false };
+  if (a <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 8,  timer: 20, bonus: true  };
   return              { label: "מתקדם",  color: "#a78bfa", emoji: "🔥", qCount: 8,  timer: 15, bonus: true  };
 };
 
@@ -418,17 +430,20 @@ function WelcomeScreen({ onDone }) {
       const valid = members.filter(m => m.name.trim() && m.age);
       if (!valid.length) return setErr("נא להוסיף לפחות משתתף אחד");
       setLoading(true);
-      const res = await registerFamily(name.trim(), pin);
+      const validMembers = valid.map(m => ({ name: m.name.trim(), age: parseInt(m.age) }));
+      const res = await registerFamily(name.trim(), pin, validMembers, null);
       if (!res?.ok) { setLoading(false); return setErr(res?.error || "שגיאה"); }
-      const family = { name: name.trim(), pin, members: valid.map(m => ({ name: m.name.trim(), age: parseInt(m.age) })) };
+      const family = { name: name.trim(), pin, members: validMembers };
       saveFamily(family);
       setLoading(false);
       onDone(family);
     } else {
       setLoading(true);
-      const res = await registerFamily(name.trim(), pin);
+      const res = await registerFamily(name.trim(), pin, null, null);
       if (!res?.ok) { setLoading(false); return setErr(res?.error || "שם משפחה או PIN שגוי"); }
-      const family = { name: name.trim(), pin, members: [] };
+      const membersFromDB = (res.members||[]).map(m => ({ name: m.name, age: parseInt(m.age)||10 }));
+      if (!membersFromDB.length) { setLoading(false); return setErr("לא נמצאו פרטי משפחה — צרו קשר עם מנהל החידון"); }
+      const family = { name: name.trim(), pin, members: membersFromDB };
       saveFamily(family);
       setLoading(false);
       onDone(family);
@@ -1231,7 +1246,11 @@ export default function App() {
     if (code) { setTimeout(() => handleJoinWithFamily(f, code), 100); }
     else setScreen("home");
   };
-  const handleEditSave = (f) => { saveFamily(f); setFamily(f); setScreen("home"); };
+  const handleEditSave = (f) => {
+    saveFamily(f); setFamily(f);
+    updateFamilyMembers(f.name, f.pin, f.members, null);
+    setScreen("home");
+  };
   const handleDeleteFamily = () => { clearFamily(); setFamily(null); setScreen("welcome"); };
   const handleLogout = () => { clearFamily(); setFamily(null); setScreen("welcome"); };
 
