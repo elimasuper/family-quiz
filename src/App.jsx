@@ -627,8 +627,12 @@ function QuizScreen({ quizData, members, onFinish }) {
   const [timeLeft, setTimeLeft] = useState(0);
 
   const finished = ti >= turns.length;
+  const finishedRef = useRef(false);
   useEffect(() => {
-    if (finished) onFinish(scores);
+    if (finished && !finishedRef.current) {
+      finishedRef.current = true;
+      onFinish(scores);
+    }
   }, [finished]);
   if (finished) return null;
   const { member, question } = turns[ti];
