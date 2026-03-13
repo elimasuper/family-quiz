@@ -650,11 +650,18 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                           const url = window.location.origin + window.location.pathname + "?code=" + ch.code;
                           const myScore = ch.myScore !== null ? ch.myScore + "%" : "";
                           const waMsg = encodeURIComponent("🎮 חידון המשפחה — " + ch.topic + "\nמשפחת " + family.name + " הגיעה ל-" + myScore + "! 🏆\nהאם תוכלו לעקוף אותנו?\nקוד: *" + ch.code + "*\n" + url);
+                          const plainMsg = "🎮 חידון המשפחה — " + ch.topic + "\nמשפחת " + family.name + " הגיעה ל-" + myScore + "! 🏆\nהאם תוכלו לעקוף אותנו?\nקוד: " + ch.code + "\n" + url;
                           return (
-                            <a href={"https://wa.me/?text=" + waMsg} target="_blank" rel="noreferrer"
-                              style={{ display:"block", padding:"10px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(15px, 11vw, 18px)", textDecoration:"none", marginTop:8, textAlign:"center", boxShadow:"0 4px 20px #16a34a55" }}>
-                              📱 שתף שוב בוואטסאפ
-                            </a>
+                            <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                              <a href={"https://wa.me/?text=" + waMsg} target="_blank" rel="noreferrer"
+                                style={{ flex:2, display:"block", padding:"10px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 10vw, 17px)", textDecoration:"none", textAlign:"center", boxShadow:"0 4px 20px #16a34a55" }}>
+                                📱 שתף בוואטסאפ
+                              </a>
+                              <button onClick={() => { navigator.clipboard?.writeText(plainMsg); }}
+                                style={{ flex:1, padding:"10px", background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.15)", borderRadius:18, color:"#94a3b8", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>
+                                🔗 העתק
+                              </button>
+                            </div>
                           );
                         })()}
                       </div>
