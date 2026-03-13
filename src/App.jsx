@@ -1,4 +1,25 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Component } from "react";
+
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e.message || "שגיאה לא צפויה" }; }
+  componentDidCatch(e, info) { console.error("App crash:", e, info); }
+  render() {
+    if (this.state.error) return (
+      <div style={{ minHeight:"100vh", background:"#0f172a", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+        <div style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.3)", borderRadius:20, padding:24, textAlign:"center", maxWidth:340 }}>
+          <div style={{ fontSize:48, marginBottom:12 }}>😵</div>
+          <div style={{ color:"#f87171", fontFamily:"Fredoka One,cursive", fontSize:22, marginBottom:8 }}>משהו השתבש</div>
+          <div style={{ color:"#94a3b8", fontSize:14, marginBottom:20 }}>{this.state.error}</div>
+          <button onClick={() => window.location.reload()} style={{ background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:12, color:"#fff", fontFamily:"Fredoka One,cursive", fontSize:18, padding:"10px 24px", cursor:"pointer" }}>
+            🔄 טען מחדש
+          </button>
+        </div>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://bqboyursgerrejqvmvhq.supabase.co";
@@ -1135,7 +1156,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   );
 }
 
-export default function App() {
+function AppInner() {
   const [family, setFamily]       = useState(null);        // loaded from LS on boot
   const [screen, setScreen]       = useState("boot");      // boot|welcome|home|loading|editFamily|quiz|share|results
   const [topic, setTopic]         = useState("");
@@ -1359,4 +1380,8 @@ export default function App() {
       <InstallBanner />
     </>
   );
+}
+
+export default function App() {
+  return <ErrorBoundary><AppInner /></ErrorBoundary>;
 }
