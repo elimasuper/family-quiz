@@ -214,8 +214,8 @@ const ag = (age) => {
   const a = parseInt(age) || 99;
   if (a <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 5,  timer: 0,  bonus: false };
   if (a <= 9)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 0,  bonus: false };
-  if (a <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 8,  timer: 20, bonus: true  };
-  return              { label: "מתקדם",  color: "#a78bfa", emoji: "🔥", qCount: 8,  timer: 15, bonus: true  };
+  if (a <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 6,  timer: 20, bonus: true  };
+  return              { label: "מתקדם",  color: "#a78bfa", emoji: "🔥", qCount: 6,  timer: 15, bonus: true  };
 };
 
 async function searchWikiResults(query) {
@@ -250,16 +250,7 @@ async function fetchWiki(topic) {
 }
 
 // ─── AI ───────────────────────────────────────────────────────────────────────
-async function generateQuestions(wikiText, wikiLang, members, seed = "") {
-  const desc = members.map(m => { const g = ag(m.age); return `- ${m.name}, גיל ${m.age}: ${g.qCount} שאלות, רמה ${g.label}`; }).join("\n");
-  const rules = members.map(m => {
-    if (m.age <= 5)  return `${m.name} (גיל ${m.age}): שאלות מאוד קלות — דברים שילד בגן מכיר. לדוגמה: צבעים, חיות. תשובות של מילה אחת.`;
-    if (m.age <= 8)  return `${m.name} (גיל ${m.age}): שאלות פשוטות ומהנות. תשובות קצרות.`;
-    if (m.age <= 12) return `${m.name} (גיל ${m.age}): שאלות ברמת בית ספר יסודי.`;
-    return             `${m.name} (גיל ${m.age}): שאלות מאתגרות עם פרטים ספציפיים מהטקסט.`;
-  }).join("\n");
-  const example = '{"members":[{"name":"שם","questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0,"explanation":"..."}]}]}';
-  const prompt = "טקסט:\n" + wikiText + "\n\nמשתתפים:\n" + desc + "\n\nכללי גיל:\n" + rules + "\n\nחוקים (חשוב מאוד!):\n1. שאלות מהטקסט בלבד — אין להמציא.\n2. כל שאלה על היבט שונה — אין חזרות.\n3. אסור שהתשובה תופיע בתוך ניסוח השאלה.\n4. עברית תקנית בלבד — אין להמציא מילים.\n5. 4 תשובות מובחנות — רק אחת נכונה בבירור.\n6. תשובות קצרות עד 4 מילים.\n7. emoji לכל שאלה.\n8. אין לשאול על המשתתפים.\n9. JSON בלבד:\n" + example;
+async function callHaiku(prompt) {
   const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -272,12 +263,9 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("תגובת AI לא תקינה: " + raw.slice(0, 150));
   const text = jsonMatch[0];
-  let parsed;
   const tryParse = (t) => {
     try { return JSON.parse(t); } catch {}
-    // תקן trailing commas
     try { return JSON.parse(t.replace(/,\s*([\]\}])/g, "$1")); } catch {}
-    // תקן גרשיים בתוך strings עבריים — החלף " פנימי ב-'
     try {
       const fixed = t.replace(/:[ ]*"((?:[^"\\]|\\.)*)"/g, (match, val) => {
         const cleaned = val.replace(/(?<!\\)"/g, "'");
@@ -287,7 +275,6 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     } catch {}
     return null;
   };
-  // נסה לתקן JSON חתוך — הוסף סוגריים חסרים
   const autoFix = (t) => {
     let fixed = t;
     const opens = (fixed.match(/\[/g)||[]).length - (fixed.match(/\]/g)||[]).length;
@@ -296,18 +283,33 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     for (let i=0; i<openc; i++) fixed += "}";
     return tryParse(fixed);
   };
-  parsed = tryParse(text) || autoFix(text);
+  const parsed = tryParse(text) || autoFix(text);
   if (!parsed) throw new Error("JSON: " + text.slice(-150));
-  // ערבב תשובות — אל תסמוך על ה-AI לשים את הנכונה במקום אקראי
-  parsed.members = (parsed.members||[]).map(m => ({
-    ...m,
-    questions: (m.questions||[]).map(q => {
-      const correct = q.answers[q.correct_index];
-      const shuffled = [...q.answers].sort(() => Math.random() - 0.5);
-      return { ...q, answers: shuffled, correct_index: shuffled.indexOf(correct) };
-    })
-  }));
   return parsed;
+}
+
+async function generateQuestionsForMember(wikiText, member) {
+  const g = ag(member.age);
+  let ageRule = "";
+  if (member.age <= 5)  ageRule = "שאלות מאוד קלות — דברים שילד בגן מכיר. תשובות של מילה אחת.";
+  else if (member.age <= 8)  ageRule = "שאלות פשוטות ומהנות. תשובות קצרות.";
+  else if (member.age <= 12) ageRule = "שאלות ברמת בית ספר יסודי.";
+  else ageRule = "שאלות מאתגרות עם פרטים ספציפיים מהטקסט.";
+  const example = '{"questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0}]}';
+  const prompt = "טקסט:\n" + wikiText + "\n\nמשתתף: " + member.name + ", גיל " + member.age + "\nרמה: " + ageRule + "\nכמות שאלות: " + g.qCount + "\n\nחוקים: 1. שאלות מהטקסט בלבד. 2. כל שאלה על נושא שונה. 3. אסור שהתשובה תופיע בניסוח השאלה. 4. עברית תקנית. 5. 4 תשובות מובחנות. 6. תשובות קצרות עד 4 מילים. 7. emoji לכל שאלה. 8. אל תוסיף שדה explanation. 9. JSON בלבד:\n" + example;
+  const parsed = await callHaiku(prompt);
+  const questions = (parsed.questions || []).map(q => {
+    const correct = q.answers[q.correct_index];
+    const shuffled = [...q.answers].sort(() => Math.random() - 0.5);
+    return { ...q, answers: shuffled, correct_index: shuffled.indexOf(correct) };
+  });
+  return { name: member.name, questions };
+}
+
+async function generateQuestions(wikiText, wikiLang, members, seed = "") {
+  // יצירה מקבילית — כל משתתף בנפרד, בו-זמנית
+  const results = await Promise.all(members.map(m => generateQuestionsForMember(wikiText, m)));
+  return { members: results };
 }
 
 // ─── QUESTION VALIDATION ─────────────────────────────────────────────────────
@@ -993,7 +995,7 @@ function QuizScreen({ quizData, members, onFinish }) {
         {done && (
           <div style={{ marginTop:12, animation:"slideIn .3s ease" }}>
             <div style={{ textAlign:"center", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 29px)", color:sel===question.correct_index?"#4ade80":"#f87171", marginBottom:8 }}>{msg}</div>
-            {question.explanation && <div style={{ background:"rgba(255,255,255,.06)", borderRadius:12, padding:"10px 14px", color:"#94a3b8", fontSize:"clamp(17px, 12vw, 24px)", fontFamily:"'Varela Round',sans-serif", borderRight:`3px solid ${g.color}` }}>💡 {question.explanation}</div>}
+            
           </div>
         )}
       </div>
