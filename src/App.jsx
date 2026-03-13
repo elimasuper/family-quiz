@@ -208,7 +208,16 @@ async function fetchWiki(topic) {
     const r = await fetch(`https://he.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=extracts&explaintext=true&exsectionformat=plain&format=json&origin=*&redirects=1`);
     const d = await r.json();
     const p = Object.values(d.query.pages)[0];
-    if (p.extract && p.extract.length >= 300) return { text: p.extract.slice(0, 1500), lang: "he", title: p.title };
+    if (p.extract && p.extract.length >= 300) {
+      const full = p.extract;
+      const len = full.length;
+      // קח קטעים מפוזרים: תחילה (1000) + אמצע (800) + סוף (600) = עד 2400 תווים
+      const start = full.slice(0, 1000);
+      const mid = len > 2000 ? full.slice(Math.floor(len*0.4), Math.floor(len*0.4)+800) : "";
+      const end = len > 3000 ? full.slice(Math.floor(len*0.75), Math.floor(len*0.75)+600) : "";
+      const text = [start, mid, end].filter(Boolean).join("\n\n...");
+      return { text, lang: "he", title: p.title };
+    }
     return null;
   };
   const direct = await get(topic);
@@ -638,7 +647,14 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                           });
                         })()}
                         {ch.creator_family === family.name && (
-                          <button onClick={() => { const url=`${window.location.origin}${window.location.pathname}?code=${ch.code}`; navigator.share?navigator.share({title:"חידון המשפחה",text:`אתגר על ${ch.topic}! קוד: ${ch.code}`,url}):navigator.clipboard?.writeText(url); }}
+                          <button
+                            onClick={() => {
+                              const url = window.location.origin + window.location.pathname + "?code=" + ch.code;
+                              const myScore = ch.myScore !== null ? ch.myScore + "%" : "";
+                              const msg = "משפחת " + family.name + " הגיעה ל-" + myScore + " בחידון על " + ch.topic + "! 🏆\nהאם תוכלו לעקוף אותנו?\nקוד: " + ch.code + "\n" + url;
+                              if (navigator.share) navigator.share({ title:"חידון המשפחה", text:msg, url });
+                              else navigator.clipboard?.writeText(msg);
+                            }}
                             style={{ ...C.btnP, background:"linear-gradient(135deg,#16a34a,#15803d)", marginTop:8, marginBottom:0, fontSize:"clamp(15px, 11vw, 18px)", padding:"10px" }}>
                             📱 שתף שוב
                           </button>
