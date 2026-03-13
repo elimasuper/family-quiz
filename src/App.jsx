@@ -57,6 +57,15 @@ const FAMILY_KEY = "fq_family";
 const getFamily = () => LS.get(FAMILY_KEY);
 const saveFamily = (f) => LS.set(FAMILY_KEY, f);
 const clearFamily = () => LS.del(FAMILY_KEY);
+const QHIST_KEY = "fq_qhist";
+const getQHistory = (topic) => { const h = LS.get(QHIST_KEY) || {}; return h[topic] || []; };
+const addQHistory = (topic, questions) => {
+  const h = LS.get(QHIST_KEY) || {};
+  const prev = h[topic] || [];
+  const newQ = questions.map(q => q.question).filter(Boolean);
+  h[topic] = [...new Set([...prev, ...newQ])].slice(-30); // שמור עד 30 שאלות אחרונות
+  LS.set(QHIST_KEY, h);
+};
 
 // ─── SUPABASE OPS ─────────────────────────────────────────────────────────────
 const makeCode = () => String(Math.floor(1000 + Math.random() * 9000));
@@ -232,12 +241,8 @@ async function fetchWiki(topic) {
     if (p.extract && p.extract.length >= 300) {
       const full = p.extract;
       const len = full.length;
-      // קח קטעים מפוזרים: תחילה (1000) + אמצע (800) + סוף (600) = עד 2400 תווים
-      const start = full.slice(0, 1000);
-      const mid = len > 2000 ? full.slice(Math.floor(len*0.4), Math.floor(len*0.4)+800) : "";
-      const end = len > 3000 ? full.slice(Math.floor(len*0.75), Math.floor(len*0.75)+600) : "";
-      const text = [start, mid, end].filter(Boolean).join("\n\n...");
-      return { text, lang: "he", title: p.title };
+      // החזר את הטקסט המלא — generateQuestions יבחר קטעים רנדומליים בכל פעם
+      return { text: full, lang: "he", title: p.title };
     }
     return null;
   };
@@ -288,7 +293,7 @@ async function callHaiku(prompt) {
   return parsed;
 }
 
-async function generateQuestionsForMember(wikiText, member) {
+async function generateQuestionsForMember(wikiText, member, usedQuestions) {
   const g = ag(member.age);
   let ageRule = "";
   if (member.age <= 5)  ageRule = "שאלות מאוד קלות — דברים שילד בגן מכיר. תשובות של מילה אחת.";
@@ -296,7 +301,10 @@ async function generateQuestionsForMember(wikiText, member) {
   else if (member.age <= 12) ageRule = "שאלות ברמת בית ספר יסודי.";
   else ageRule = "שאלות מאתגרות עם פרטים ספציפיים מהטקסט.";
   const example = '{"questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0}]}';
-  const prompt = "טקסט:\n" + wikiText + "\n\nמשתתף: " + member.name + ", גיל " + member.age + "\nרמה: " + ageRule + "\nכמות שאלות: " + g.qCount + "\n\nחוקים: 1. שאלות מהטקסט בלבד. 2. כל שאלה על נושא שונה. 3. אסור שהתשובה תופיע בניסוח השאלה. 4. עברית תקנית. 5. 4 תשובות מובחנות. 6. תשובות קצרות עד 4 מילים. 7. emoji לכל שאלה. 8. אל תוסיף שדה explanation. 9. JSON בלבד:\n" + example;
+  // seed רנדומלי — מבטיח שאלות שונות בכל קריאה
+  const seed = Math.random().toString(36).slice(2, 6);
+  const usedBlock = usedQuestions && usedQuestions.length ? "\n\nשאלות שכבר נשאלו (אסור לחזור עליהן):\n" + usedQuestions.slice(-15).map((q,i) => (i+1) + ". " + q).join("\n") : "";
+  const prompt = "טקסט:\n" + wikiText + usedBlock + "\n\nמשתתף: " + member.name + ", גיל " + member.age + "\nרמה: " + ageRule + "\nכמות שאלות: " + g.qCount + "\n\nחוקים: 1. שאלות מהטקסט בלבד. 2. כל שאלה על היבט שונה לחלוטין — נושאים שונים, עובדות שונות, אין שתי שאלות על אותו דבר. 3. אסור שהתשובה תופיע בניסוח השאלה. 4. עברית תקנית. 5. 4 תשובות מובחנות. 6. תשובות קצרות עד 4 מילים. 7. emoji לכל שאלה. 8. אל תוסיף שדה explanation. 9. התחל מנקודה אקראית בטקסט (seed: " + seed + "). 10. JSON בלבד:\n" + example;
   const parsed = await callHaiku(prompt);
   const questions = (parsed.questions || []).map(q => {
     const correct = q.answers[q.correct_index];
@@ -306,9 +314,29 @@ async function generateQuestionsForMember(wikiText, member) {
   return { name: member.name, questions };
 }
 
-async function generateQuestions(wikiText, wikiLang, members, seed = "") {
-  // יצירה מקבילית — כל משתתף בנפרד, בו-זמנית
-  const results = await Promise.all(members.map(m => generateQuestionsForMember(wikiText, m)));
+async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
+  // בחר קטעים רנדומליים מהטקסט המלא — שונים בכל חידון
+  const len = wikiText.length;
+  const chunkSize = 700;
+  const numChunks = Math.max(3, Math.floor(len / chunkSize));
+  // בחר 3 נקודות התחלה רנדומליות שונות
+  const positions = [];
+  while (positions.length < 3) {
+    const pos = Math.floor(Math.random() * (len - chunkSize));
+    if (positions.every(p => Math.abs(p - pos) > chunkSize)) positions.push(pos);
+    if (positions.length === 0 && len < chunkSize * 3) { positions.push(0); break; }
+  }
+  positions.sort((a, b) => a - b);
+  const chunks = positions.map(p => wikiText.slice(p, p + chunkSize));
+  // תמיד כלול גם את ההתחלה (הכי חשובה)
+  const wikiSlice = wikiText.slice(0, 600) + "\n\n..." + chunks.join("\n\n...");
+  const usedQ = topic ? getQHistory(topic) : [];
+  const results = await Promise.all(members.map(m => generateQuestionsForMember(wikiSlice, m, usedQ)));
+  // שמור שאלות ב-history למניעת חזרות
+  if (topic) {
+    const allQ = results.flatMap(r => (r && r.questions) ? r.questions : []);
+    addQHistory(topic, allQ);
+  }
   return { members: results };
 }
 
@@ -1230,7 +1258,7 @@ function AppInner() {
       // צור שאלות מותאמות לגילאי המשפחה המצטרפת
       const wiki = await fetchWiki(room.topic);
       const seed = Math.random().toString(36).slice(2,8);
-      const data = await generateQuestions(wiki.text, wiki.lang, fam.members, seed);
+      const data = await generateQuestions(wiki.text, wiki.lang, fam.members, seed, wiki.title);
       const validated = await validateQuestions(data, wiki.text);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
       setQuizData(validated); setIsChallenger(true); setScreen("quiz");
@@ -1252,7 +1280,7 @@ function AppInner() {
     try {
       const wiki = await fetchWiki(t);
       const seed = Math.random().toString(36).slice(2,8);
-      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed);
+      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed, wiki.title);
       const validated = await validateQuestions(data, wiki.text);
       stop(); setQuizData(validated); setScreen("quiz");
     } catch(e) { stop(); setError(e.message||"שגיאה"); setScreen("home"); }
@@ -1278,7 +1306,7 @@ function AppInner() {
       // צור שאלות מותאמות לגילאי המשפחה המצטרפת
       const wiki = await fetchWiki(room.topic);
       const seed = Math.random().toString(36).slice(2,8);
-      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed);
+      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed, wiki.title);
       const validated = await validateQuestions(data, wiki.text);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
       setQuizData(validated); setIsChallenger(true); setScreen("quiz");
@@ -1316,7 +1344,7 @@ function AppInner() {
     try {
       const wiki = await fetchWiki(topic);
       const seed = Math.random().toString(36).slice(2,8);
-      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed);
+      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed, wiki.title);
       const validated = await validateQuestions(data, wiki.text);
       stop(); setQuizData(validated); setIsChallenger(false); setCreatorPct(null); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
@@ -1328,7 +1356,7 @@ function AppInner() {
     try {
       const wiki = await fetchWiki(topic);
       const seed = Math.random().toString(36).slice(2,8);
-      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed);
+      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed, wiki.title);
       // שמור חידון חדש על אותו קוד
       const newCode = makeCode();
       setCode(newCode);
