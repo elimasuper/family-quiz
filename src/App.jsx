@@ -646,19 +646,17 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                             );
                           });
                         })()}
-                        {ch.creator_family === family.name && (
-                          <button
-                            onClick={() => {
-                              const url = window.location.origin + window.location.pathname + "?code=" + ch.code;
-                              const myScore = ch.myScore !== null ? ch.myScore + "%" : "";
-                              const msg = "משפחת " + family.name + " הגיעה ל-" + myScore + " בחידון על " + ch.topic + "! 🏆\nהאם תוכלו לעקוף אותנו?\nקוד: " + ch.code + "\n" + url;
-                              if (navigator.share) navigator.share({ title:"חידון המשפחה", text:msg, url });
-                              else navigator.clipboard?.writeText(msg);
-                            }}
-                            style={{ ...C.btnP, background:"linear-gradient(135deg,#16a34a,#15803d)", marginTop:8, marginBottom:0, fontSize:"clamp(15px, 11vw, 18px)", padding:"10px" }}>
-                            📱 שתף שוב
-                          </button>
-                        )}
+                        {ch.creator_family === family.name && (() => {
+                          const url = window.location.origin + window.location.pathname + "?code=" + ch.code;
+                          const myScore = ch.myScore !== null ? ch.myScore + "%" : "";
+                          const waMsg = encodeURIComponent("🎮 חידון המשפחה — " + ch.topic + "\nמשפחת " + family.name + " הגיעה ל-" + myScore + "! 🏆\nהאם תוכלו לעקוף אותנו?\nקוד: *" + ch.code + "*\n" + url);
+                          return (
+                            <a href={"https://wa.me/?text=" + waMsg} target="_blank" rel="noreferrer"
+                              style={{ display:"block", padding:"10px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(15px, 11vw, 18px)", textDecoration:"none", marginTop:8, textAlign:"center", boxShadow:"0 4px 20px #16a34a55" }}>
+                              📱 שתף שוב בוואטסאפ
+                            </a>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
