@@ -287,8 +287,17 @@ async function generateQuestions(wikiText, wikiLang, members, seed = "") {
     } catch {}
     return null;
   };
-  parsed = tryParse(text);
-  if (!parsed) throw new Error("שגיאה בפענוח JSON — נסו שנית");
+  // נסה לתקן JSON חתוך — הוסף סוגריים חסרים
+  const autoFix = (t) => {
+    let fixed = t;
+    const opens = (fixed.match(/\[/g)||[]).length - (fixed.match(/\]/g)||[]).length;
+    const openc = (fixed.match(/\{/g)||[]).length - (fixed.match(/\}/g)||[]).length;
+    for (let i=0; i<opens; i++) fixed += "]";
+    for (let i=0; i<openc; i++) fixed += "}";
+    return tryParse(fixed);
+  };
+  parsed = tryParse(text) || autoFix(text);
+  if (!parsed) throw new Error("JSON: " + text.slice(-150));
   // ערבב תשובות — אל תסמוך על ה-AI לשים את הנכונה במקום אקראי
   parsed.members = (parsed.members||[]).map(m => ({
     ...m,
