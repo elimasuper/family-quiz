@@ -1183,22 +1183,35 @@ function AppInner() {
   // boot: check localStorage + URL code
   useEffect(() => {
     const saved = getFamily();
-    // אם members ריק — נקה ושלח ל-login
-    if (saved && (!saved.members || !saved.members.length)) {
-      clearFamily();
-      return;
-    }
     const urlCode = new URLSearchParams(window.location.search).get("code");
     if (saved) {
+      // אם members ריק — נסה לטעון מ-Supabase
+      if (!saved.members || !saved.members.length) {
+        sbSafe(async () => {
+          const r = await sbFetch("families?name=eq." + encodeURIComponent(saved.name) + "&select=*");
+          const dbMembers = (r?.[0]?.members || []).map(m => ({ name: m.name, age: parseInt(m.age)||10 }));
+          if (dbMembers.length) {
+            const updated = { ...saved, members: dbMembers };
+            saveFamily(updated);
+            setFamily(updated);
+            if (urlCode) setTimeout(() => handleJoinWithFamily(updated, urlCode), 100);
+            else setScreen("home");
+          } else {
+            // אין ב-DB גם כן — שלח ל-welcome לעדכון גילאים
+            setFamily(saved);
+            setScreen("home");
+          }
+        }, null, null);
+        return;
+      }
       setFamily(saved);
       if (urlCode) {
-        // יש קוד ב-URL — הצטרף אוטומטית
         setTimeout(() => handleJoinWithFamily(saved, urlCode), 100);
       } else {
         setScreen("home");
       }
     } else {
-      if (urlCode) setCode(urlCode); // שמור קוד לאחרי הרשמה
+      if (urlCode) setCode(urlCode);
       setScreen("welcome");
     }
   }, []);
