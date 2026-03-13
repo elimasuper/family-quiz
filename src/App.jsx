@@ -1183,6 +1183,11 @@ function AppInner() {
   // boot: check localStorage + URL code
   useEffect(() => {
     const saved = getFamily();
+    // אם members ריק — נקה ושלח ל-login
+    if (saved && (!saved.members || !saved.members.length)) {
+      clearFamily();
+      return;
+    }
     const urlCode = new URLSearchParams(window.location.search).get("code");
     if (saved) {
       setFamily(saved);
