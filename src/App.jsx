@@ -145,6 +145,13 @@ async function saveChallenge(code, familyName, familyPct, setOnline) {
   }), null, setOnline);
 }
 
+async function updateChallenge(code, familyName, familyPct, setOnline) {
+  return sbSafe(() => sbFetch(("quiz_challenges?code=eq." + code + "&family_name=eq." + encodeURIComponent(familyName)), {
+    method: "PATCH", prefer: "return=minimal",
+    body: JSON.stringify({ family_pct: familyPct, played_at: new Date().toISOString() }),
+  }), null, setOnline);
+}
+
 async function getChallenges(code, setOnline) {
   return sbSafe(async () => {
     const r = await sbFetch(("quiz_challenges?code=eq." + code + "&select=family_name,family_pct&order=family_pct.desc&limit=20"));
@@ -1423,7 +1430,7 @@ function AppInner() {
       if (!room) { stop(); setError("לא נמצא חידון עם קוד " + c); setScreen("home"); return; }
       const played = await hasPlayedQuiz(c, fam.name, setSbOnline);
       if (played) {
-        stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setScreen("alreadyPlayed"); return;
+        stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct); setScreen("alreadyPlayed"); return;
       }
       const validated = await buildQuiz(room.topic, fam.members);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
@@ -1464,7 +1471,7 @@ function AppInner() {
       if (!room) { stop(); setError("לא נמצא חידון עם קוד " + c); setScreen("home"); return; }
       const played = await hasPlayedQuiz(c, family.name, setSbOnline);
       if (played) {
-        stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setScreen("alreadyPlayed"); return;
+        stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct); setScreen("alreadyPlayed"); return;
       }
       const validated = await buildQuiz(room.topic, family.members);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
@@ -1478,7 +1485,9 @@ function AppInner() {
     const pct = fp(family.members, s);
     const rawScore = calcRawScore(family.members, s);
     if (isChallenger) {
-      await saveChallenge(code, family.name, pct, null);
+      // נסה עדכון (אם כבר שיחק), אחרת הכנס חדש
+      var updated = await updateChallenge(code, family.name, pct, null);
+      if (!updated) await saveChallenge(code, family.name, pct, null);
       await upsertScore(family.name, rawScore, pct, null);
       if (creatorPct !== null && rawScore > creatorPct) setBeatenBy(null);
       setScreen("results");
@@ -1511,6 +1520,15 @@ function AppInner() {
       const newCode = makeCode();
       setCode(newCode);
       stop(); setQuizData(validated); setIsChallenger(false); setBeatenBy(null); setScreen("quiz");
+    } catch(e) { stop(); setError(e.message); setScreen("home"); }
+  };
+
+  // שחק שוב את אותו אתגר — שאלות חדשות, עדכון ציון קיים
+  const handleRetryChallenge = async () => {
+    const stop = startLoad();
+    try {
+      const validated = await buildQuiz(blockedTopic || topic, family.members);
+      stop(); setTopic(blockedTopic || topic); setQuizData(validated); setIsChallenger(true); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
 
@@ -1554,12 +1572,13 @@ function AppInner() {
           {screen==="loading"      && <LoadingScreen msg={loadMsg} emoji={te(topic)||"📖"} />}
           {screen==="alreadyPlayed"&& (
             <div style={{ ...C.card, textAlign:"center", animation:"slideIn .4s ease" }}>
-              <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:12 }}>🔒</div>
-              <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 8px" }}>כבר שיחקתם את הקוד הזה!</h2>
+              <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:12 }}>🔄</div>
+              <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 8px" }}>כבר שיחקתם את האתגר הזה!</h2>
               <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 20px)", margin:"0 0 20px" }}>
-                אבל אפשר לקבל שאלות חדשות על אותו נושא — עם קטעים אחרים מהמאמר!
+                רוצים לשפר את הציון? תקבלו שאלות חדשות והציון יתעדכן!
               </p>
-              <button onClick={() => handlePlay(blockedTopic)} style={C.btnP}>🔥 שאלות חדשות על {blockedTopic}!</button>
+              <button onClick={handleRetryChallenge} style={C.btnP}>🔥 שפרו את הציון!</button>
+              <button onClick={() => handlePlay(blockedTopic)} style={C.btnS}>🎲 חידון חדש על {blockedTopic}</button>
               <button onClick={() => setScreen("home")} style={C.btnS}>🎮 בחרו נושא אחר</button>
             </div>
           )}
