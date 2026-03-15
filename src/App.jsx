@@ -1479,19 +1479,7 @@ function AppInner() {
 
   return (
     <>
-      <style>{"
-        @keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-        @keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:0}}
-        @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-        @keyframes floatUp{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-110px) scale(1.6)}}
-        @keyframes fadeSpot{0%,80%{opacity:1}100%{opacity:0;pointer-events:none}}
-        @keyframes popIn{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
-        @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
-        @keyframes correctPulse{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
-      "}</style>
+      <style>{"@keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:0}}@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}@keyframes floatUp{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-110px) scale(1.6)}}@keyframes fadeSpot{0%,80%{opacity:1}100%{opacity:0;pointer-events:none}}@keyframes popIn{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}@keyframes correctPulse{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}"}</style>
 
       <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#05050f 0%,#0f172a 40%,#1a1540 70%,#0a0a18 100%)", padding:"clamp(16px, 3vw, 40px) clamp(16px, 4vw, 60px) 80px", display:"flex", flexDirection:"column", alignItems:"center" }}>
         {!sbOnline && (
