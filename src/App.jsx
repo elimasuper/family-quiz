@@ -338,11 +338,11 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
     + "\nכמות שאלות: " + totalQuestions
     + "\n\nחוקים:"
     + "\n1. שאלות מהטקסט בלבד — אסור להמציא עובדות."
-    + "\n2. כל שאלה חייבת להיות על נושא/עובדה/היבט אחר לגמרי — אסור ששתי שאלות יעסקו באותו עניין, אותה פסקה, או אותו פרט."
-    + "\n3. פזר את השאלות על פני כל חלקי הטקסט — מההתחלה, האמצע והסוף."
+    + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים לחלוטין זה מזה. לפני שאתה כותב שאלה, ודא שהיא לא דומה לאף שאלה קודמת ברשימה — לא אותו נושא, לא אותה עובדה, לא אותו מושג."
+    + "\n3. פזר את השאלות על פני כל חלקי הטקסט — מההתחלה, האמצע והסוף. אל תתמקד בפסקה אחת."
     + "\n4. אסור שהתשובה הנכונה תופיע בגוף השאלה."
     + "\n5. עברית תקנית."
-    + "\n6. 4 תשובות מובחנות — רק אחת נכונה בבירור. המסיחים צריכים להיות סבירים אבל שגויים."
+    + "\n6. 4 תשובות מובחנות — רק אחת נכונה בבירור. המסיחים צריכים להיות סבירים אבל שגויים בבירור."
     + "\n7. תשובות קצרות, עד 4 מילים."
     + "\n8. emoji אחד רלוונטי לכל שאלה."
     + "\n9. אל תוסיף שדה explanation."
@@ -435,14 +435,31 @@ async function validateQuestions(quizData, wikiText) {
   });
   if (!allQuestions.length) return quizData;
 
-  // בדיקת כפילויות בצד הלקוח — סנן שאלות דומות מדי לפני שליחה ל-AI
-  var seen = {};
+  // בדיקת כפילויות בצד הלקוח — סנן שאלות דומות מדי
   var dupeIndices = new Set();
+  var stopWords = ["מה","מי","איזה","איזו","כמה","מתי","איפה","האם","של","את","על","הוא","היא","זה","זו","הם","הן","או","עם","לא","כן","גם","רק","אם","אבל","כי","כל","היה","היו","היתה","שהוא","שהיא","שהם","אחד","אחת","יותר","הכי","לפי","בין","תוך","עד"];
+  var extractWords = function(text) {
+    return text.replace(/[?.!,،؟"'\u0027]/g, "").split(/\s+/).filter(function(w) {
+      return w.length > 1 && stopWords.indexOf(w) === -1;
+    });
+  };
+  var questionsWords = allQuestions.map(function(q) { return extractWords(q.question); });
+
   allQuestions.forEach(function(q, i) {
-    // נרמל: הורד סימני פיסוק ורווחים מיותרים
-    var norm = q.question.replace(/[?.!,،؟]/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
-    if (seen[norm]) { dupeIndices.add(i); }
-    else { seen[norm] = true; }
+    if (dupeIndices.has(i)) return;
+    var wordsA = questionsWords[i];
+    for (var j = i + 1; j < allQuestions.length; j++) {
+      if (dupeIndices.has(j)) continue;
+      var wordsB = questionsWords[j];
+      // ספור מילים משותפות
+      var shared = 0;
+      wordsA.forEach(function(w) { if (wordsB.indexOf(w) !== -1) shared++; });
+      var overlap = shared / Math.max(1, Math.min(wordsA.length, wordsB.length));
+      // אם 60% מהמילים משותפות — זו כפילות
+      if (overlap >= 0.6) { dupeIndices.add(j); }
+      // בדוק גם תשובה נכונה זהה
+      if (q.correct_answer === allQuestions[j].correct_answer && overlap >= 0.3) { dupeIndices.add(j); }
+    }
   });
 
   // סנן כפילויות
@@ -496,8 +513,8 @@ async function validateQuestions(quizData, wikiText) {
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-const PRAISE = ["וואו! 🎉","מדהים! ⭐","אלוף! 🏆","נכון! 💥","כל הכבוד! 🌟","מושלם! ✨","גאון! 🧠"];
-const MISS   = ["כמעט! 💪","ניסיון טוב 😊","בפעם הבאה! 🎯","אל תוותר! 🔥"];
+const PRAISE = ["בול! 🎯","יאללה! 🔥","חזק! 💥","אחלה! 🌟","בדיוק! ✨","וואלה! 🧠","קלף! 🎉"];
+const MISS   = ["אופס! 😅","קרוב! 💪","בסיבוב הבא 🎯","לא נורא! 🔥"];
 const rnd    = (a) => a[Math.floor(Math.random() * a.length)];
 
 const TMAP   = { "דינוזאורים":"🦕","חלל":"🚀","אריות":"🦁","דולפינים":"🐬","מצרים":"🏛️","ים":"🌊","כדורגל":"⚽","מדע":"🔬","ציפורים":"🦅","הר":"🗻" };
@@ -507,7 +524,7 @@ const fp = (members, scores) => {
   if (!valid.length) return 0;
   return Math.round(valid.reduce((s,m) => { const sc=scores[m.name]; return s + sc.correct/sc.total*100; }, 0) / valid.length);
 };
-// ציון גולמי: (% נכון × 100) + ממוצע שניות שנשארו
+// ציון גולמי: (% נכון × 100) + בונוס מהירות קטן (עד 10 נק')
 const calcRawScore = (members, scores) => {
   const valid = members.filter(m => scores[m.name]?.total > 0);
   if (!valid.length) return 0;
@@ -516,7 +533,9 @@ const calcRawScore = (members, scores) => {
   const avgSecs = timerScores.length
     ? timerScores.reduce((s,m) => s + scores[m.name].timerSum/scores[m.name].timerCount, 0) / timerScores.length
     : 0;
-  return Math.round(pct * 100 + avgSecs);
+  // בונוס זמן: עד 10 נקודות מקסימום — shoverbreak, לא מכריע
+  var timerBonus = Math.min(10, Math.round(avgSecs));
+  return Math.round(pct * 100 + timerBonus);
 };
 
 const LOAD_MSGS = ["🔍 מחפש בויקיפדיה...","📖 קורא את המאמר...","🧠 יוצר שאלות...","✨ מותאם לכל גיל...","🎮 כמעט מוכן!"];
@@ -1066,9 +1085,9 @@ function QuizScreen({ quizData, members, onFinish }) {
     const ok = i === question.correct_index;
     if (ok) { setConfetti(true); setTimeout(()=>setConfetti(false),2200); setFloatE(question.emoji||"⭐"); setTimeout(()=>setFloatE(null),1300); setMsg(rnd(PRAISE)); }
     else setMsg(rnd(MISS));
-    // Points: base 10 per correct answer. Bonus for speed (timer>0): +1 per second left
+    // Points: base 10 per correct answer. Speed bonus: up to 3 extra points (capped)
     const base = ok ? 10 : 0;
-    const bonus = ok && g.timer > 0 ? timeLeft : 0;
+    const bonus = ok && g.timer > 0 ? Math.min(3, Math.floor(timeLeft / (g.timer / 3))) : 0;
     const pts = base + bonus;
     const timerAdd = g.timer > 0 ? { timerSum: (scores[member.name].timerSum||0)+timeLeft, timerCount: (scores[member.name].timerCount||0)+1 } : {};
     setScores(s => ({ ...s, [member.name]: { ...s[member.name], correct:s[member.name].correct+(ok?1:0), total:s[member.name].total+1, points:(s[member.name].points||0)+pts, ...timerAdd } }));
@@ -1160,7 +1179,9 @@ function ShareScreen({ code, topic, familyName, pct, onContinue }) {
   const url = window.location.origin + window.location.pathname + "?code=" + code;
   const waText = encodeURIComponent("🎮 חידון המשפחה — " + topic + "\nמשפחת " + familyName + " השיגה " + pct + "%!\n\nהאם תוכלו לנצח? 🏆\n\nקוד: *" + code + "*\n" + url);
 
-  const copy = () => { navigator.clipboard?.writeText(url).catch(()=>{}); setCopied(true); setTimeout(()=>setCopied(false),2000); };
+  const fullMsg = "🎮 חידון המשפחה — " + topic + "\nמשפחת " + familyName + " השיגה " + pct + "%!\n\nהאם תוכלו לנצח? 🏆\n\nקוד: " + code + "\n" + url;
+
+  const copy = () => { navigator.clipboard?.writeText(fullMsg).catch(function(){}); setCopied(true); setTimeout(function(){setCopied(false);},2000); };
 
   return (
     <div style={{ ...C.card, textAlign:"center", animation:"slideIn .4s ease" }}>
@@ -1177,7 +1198,7 @@ function ShareScreen({ code, topic, familyName, pct, onContinue }) {
         style={{ display:"block", padding:"15px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", textDecoration:"none", marginBottom:8, boxShadow:"0 4px 20px #16a34a55" }}>
         📱 שליחה בוואטסאפ
       </a>
-      <button onClick={copy} style={{ ...C.btnS, color:copied?"#4ade80":"#94a3b8" }}>{copied?"✅ הועתק!":"🔗 העתק קישור"}</button>
+      <button onClick={copy} style={{ ...C.btnS, color:copied?"#4ade80":"#94a3b8" }}>{copied?"✅ הועתק!":"📋 העתק הודעה"}</button>
       <button onClick={onContinue} style={C.btnP}>📊 לתוצאות</button>
     </div>
   );
@@ -1196,7 +1217,12 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   const [tab, setTab] = useState("challenge");
   const pct = fp(members, scores);
   const beat = creatorPct !== null && pct > creatorPct;
-  const msg = pct>=85?"🏆 משפחת אלופים!":pct>=65?"🌟 כל הכבוד!":"💪 ניסיון מצוין!";
+  // הודעות שמעודדות תמיד לשחק עוד
+  var msg, sub, emoji;
+  if (pct === 100)     { emoji = "🏆"; msg = "מושלם!"; sub = "אפשר לשמור על הרצף? נסו נושא חדש!"; }
+  else if (pct >= 85)  { emoji = "🔥"; msg = "כמעט מושלם!"; sub = "עוד סיבוב אחד ואתם שם!"; }
+  else if (pct >= 65)  { emoji = "💪"; msg = "יופי של התחלה!"; sub = "שאלות חדשות = הזדמנות לשפר!"; }
+  else                 { emoji = "🎯"; msg = "יש מאיפה לטפס!"; sub = "כל סיבוב מלמד משהו חדש — קדימה!"; }
   const badges = calcBadges(scores, members);
 
   useEffect(() => {
@@ -1211,9 +1237,10 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
     <div style={{ animation:"slideIn .5s ease" }} key="results-screen">
       <ConfettiOnce />
       <div style={{ ...C.card, textAlign:"center", marginBottom:14 }}>
-        <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:8, animation:"bounce 1s ease infinite" }}>{pct>=85?"🏆":pct>=65?"🌟":"💪"}</div>
+        <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:8, animation:"bounce 1s ease infinite" }}>{emoji}</div>
         <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(26px, 16vw, 32px)", margin:"0 0 4px" }}>{msg}</h2>
         {beat && <div style={{ color:"#4ade80", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:6 }}>🎯 ניצחתם! ({pct}% vs {creatorPct}%)</div>}
+        <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", margin:"0 0 6px", fontSize:"clamp(15px, 11vw, 20px)" }}>{sub}</p>
         <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", margin:"0 0 14px", fontSize:"clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
         <div style={{ background:"rgba(255,255,255,.08)", borderRadius:16, padding:"14px 24px", display:"inline-block" }}>
           <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{pct}%</div>
@@ -1302,11 +1329,11 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
       )}
       {code && onShare && (
         <button onClick={onShare} style={{ ...C.btnP, background:"linear-gradient(135deg,#16a34a,#15803d)", boxShadow:"0 4px 20px #16a34a55" }}>
-          📱 שתף את האתגר
+          📱 אתגרו משפחה אחרת!
         </button>
       )}
-      <button onClick={onSameTopic} style={C.btnP}>🔄 חידון נוסף על {topic}</button>
-      <button onClick={onHome} style={C.btnS}>🏠 לדף הבית</button>
+      <button onClick={onSameTopic} style={C.btnP}>{pct < 100 ? "🔥 שפרו את הציון — שאלות חדשות!" : "🔄 עוד סיבוב על " + topic}</button>
+      <button onClick={onHome} style={C.btnS}>🎮 נושא אחר</button>
     </div>
   );
 }
@@ -1501,15 +1528,12 @@ function AppInner() {
           {screen==="alreadyPlayed"&& (
             <div style={{ ...C.card, textAlign:"center", animation:"slideIn .4s ease" }}>
               <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:12 }}>🔒</div>
-              <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 8px" }}>כבר שיחקתם!</h2>
-              <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 6px" }}>
-                משפחת {family?.name} כבר שיחקה את החידון הזה.
+              <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 8px" }}>כבר שיחקתם את הקוד הזה!</h2>
+              <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 20px)", margin:"0 0 20px" }}>
+                אבל אפשר לקבל שאלות חדשות על אותו נושא — עם קטעים אחרים מהמאמר!
               </p>
-              <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 20px" }}>
-                כל קוד חידון ניתן לשחק פעם אחת בלבד — זה מה שהופך את התחרות להוגנת! 🏆
-              </p>
-              <button onClick={() => handlePlay(blockedTopic)} style={C.btnP}>🎲 חידון חדש על {blockedTopic}</button>
-              <button onClick={() => setScreen("home")} style={C.btnS}>🏠 לדף הבית</button>
+              <button onClick={() => handlePlay(blockedTopic)} style={C.btnP}>🔥 שאלות חדשות על {blockedTopic}!</button>
+              <button onClick={() => setScreen("home")} style={C.btnS}>🎮 בחרו נושא אחר</button>
             </div>
           )}
           {screen==="quiz"         && quizData && family && <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />}
