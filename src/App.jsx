@@ -146,10 +146,13 @@ async function saveChallenge(code, familyName, familyPct, setOnline) {
 }
 
 async function updateChallenge(code, familyName, familyPct, setOnline) {
-  return sbSafe(() => sbFetch(("quiz_challenges?code=eq." + code + "&family_name=eq." + encodeURIComponent(familyName)), {
-    method: "PATCH", prefer: "return=minimal",
-    body: JSON.stringify({ family_pct: familyPct, played_at: new Date().toISOString() }),
-  }), null, setOnline);
+  return sbSafe(async function() {
+    var r = await sbFetch(("quiz_challenges?code=eq." + code + "&family_name=eq." + encodeURIComponent(familyName)), {
+      method: "PATCH", prefer: "return=representation",
+      body: JSON.stringify({ family_pct: familyPct, played_at: new Date().toISOString() }),
+    });
+    return r && r.length > 0 ? r[0] : null;
+  }, null, setOnline);
 }
 
 async function getChallenges(code, setOnline) {
@@ -1111,7 +1114,12 @@ function QuizScreen({ quizData, members, onFinish }) {
       onFinish(scores);
     }
   }, [finished]);
-  if (finished) return null;
+  if (finished) return (
+    <div style={{ textAlign:"center", padding:"80px 20px" }}>
+      <div style={{ fontSize:"clamp(56px, 28vw, 67px)", animation:"spin 2s linear infinite", display:"inline-block" }}>🏆</div>
+      <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 28px)", marginTop:16 }}>מחשב תוצאות...</div>
+    </div>
+  );
   const { member, question } = turns[ti];
   const g = ag(member.age);
   const progress = Math.round(ti / turns.length * 100);
@@ -1257,8 +1265,8 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   const beat = creatorPct !== null && pct > creatorPct;
   // הודעות שמעודדות תמיד לשחק עוד
   var msg, sub, emoji;
-  if (pct === 100)     { emoji = "🏆"; msg = "מושלם!"; sub = "אפשר לשמור על הרצף? נסו נושא חדש!"; }
-  else if (pct >= 85)  { emoji = "🔥"; msg = "כמעט מושלם!"; sub = "עוד סיבוב אחד ואתם שם!"; }
+  if (pct === 100)     { emoji = "🏆"; msg = "מושלם!"; sub = "אלופים! בואו ננסה נושא חדש?"; }
+  else if (pct >= 85)  { emoji = "🔥"; msg = "כמעט מושלם!"; sub = "עוד קצת ואתם על 100%!"; }
   else if (pct >= 65)  { emoji = "💪"; msg = "יופי של התחלה!"; sub = "שאלות חדשות = הזדמנות לשפר!"; }
   else                 { emoji = "🎯"; msg = "יש מאיפה לטפס!"; sub = "כל סיבוב מלמד משהו חדש — קדימה!"; }
   const badges = calcBadges(scores, members);
@@ -1489,22 +1497,21 @@ function AppInner() {
     const pct = fp(family.members, s);
     const rawScore = calcRawScore(family.members, s);
     if (isChallenger) {
-      // נסה עדכון (אם כבר שיחק), אחרת הכנס חדש
-      var updated = await updateChallenge(code, family.name, pct, null);
-      if (!updated) await saveChallenge(code, family.name, pct, null);
-      await upsertScore(family.name, rawScore, pct, null);
+      // שמור ברקע — לא חוסם את המשתמש
+      updateChallenge(code, family.name, pct, null).then(function(updated) {
+        if (!updated) saveChallenge(code, family.name, pct, null).catch(function(){});
+      }).catch(function(){});
+      upsertScore(family.name, rawScore, pct, null).catch(function(){});
       if (creatorPct !== null && rawScore > creatorPct) setBeatenBy(null);
       setScreen("results");
     } else {
       const newCode = makeCode();
       setCode(newCode);
-      await saveQuizRoom(newCode, topic, family.name, pct, null);
-      await saveChallenge(newCode, family.name, pct, null);
-      await saveFamilyChallenge(newCode, family.name, null);
-      await upsertScore(family.name, rawScore, pct, null);
-      const challenges = await getChallenges(code || "", null).catch(function(){return [];});
-      const beaten = (challenges||[]).find(function(r) { return r.family_name !== family.name && r.family_pct > pct; });
-      if (beaten) setBeatenBy({ name: beaten.family_name, score: beaten.family_pct });
+      // שמור ברקע
+      saveQuizRoom(newCode, topic, family.name, pct, null).catch(function(){});
+      saveChallenge(newCode, family.name, pct, null).catch(function(){});
+      saveFamilyChallenge(newCode, family.name, null).catch(function(){});
+      upsertScore(family.name, rawScore, pct, null).catch(function(){});
       setScreen("share");
     }
   };
