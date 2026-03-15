@@ -888,11 +888,15 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                               </a>
                               <button onClick={() => { navigator.clipboard?.writeText(plainMsg); }}
                                 style={{ flex:1, padding:"10px", background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.15)", borderRadius:18, color:"#94a3b8", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>
-                                🔗 העתק
+                                📋 העתק
                               </button>
                             </div>
                           );
                         })()}
+                        <button onClick={() => onJoin(ch.code)}
+                          style={{ width:"100%", marginTop:8, padding:"10px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer", boxShadow:"0 4px 20px #7c3aed55" }}>
+                          🔥 {ch.myScore !== null ? "שפרו את הציון!" : "שחקו באתגר!"}
+                        </button>
                       </div>
                     )}
                   </div>
