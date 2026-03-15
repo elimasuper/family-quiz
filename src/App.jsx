@@ -63,7 +63,7 @@ const addQHistory = (topic, questions) => {
   const h = LS.get(QHIST_KEY) || {};
   const prev = h[topic] || [];
   const newQ = questions.map(q => q.question).filter(Boolean);
-  h[topic] = [...new Set([...prev, ...newQ])].slice(-30); // שמור עד 30 שאלות אחרונות
+  h[topic] = [...new Set([...prev, ...newQ])].slice(-50); // שמור עד 50 שאלות אחרונות
   LS.set(QHIST_KEY, h);
 };
 
@@ -221,7 +221,7 @@ async function upsertScore(familyName, rawScore, pct, setOnline) {
 // ─── WIKIPEDIA ────────────────────────────────────────────────────────────────
 const ag = (age) => {
   const a = parseInt(age) || 99;
-  if (a <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 5,  timer: 0,  bonus: false };
+  if (a <= 5)  return { label: "גן",     color: "#f472b6", emoji: "🌸", qCount: 3,  timer: 0,  bonus: false };
   if (a <= 9)  return { label: "צעיר",   color: "#34d399", emoji: "🌱", qCount: 5,  timer: 0,  bonus: false };
   if (a <= 12) return { label: "בינוני", color: "#60a5fa", emoji: "⚡", qCount: 6,  timer: 20, bonus: true  };
   return              { label: "מתקדם",  color: "#a78bfa", emoji: "🔥", qCount: 6,  timer: 15, bonus: true  };
@@ -318,36 +318,42 @@ async function callHaiku(prompt, maxRetries) {
 // ─── AGE RULES ───────────────────────────────────────────────────────────────
 function getAgeRule(age) {
   var a = parseInt(age) || 99;
-  if (a <= 5)  return "שאלות מאוד קלות לגיל גן — דברים פשוטים וברורים. תשובות של מילה-שתיים.";
-  if (a <= 9)  return "שאלות פשוטות ומהנות לגיל בית ספר. תשובות קצרות וברורות.";
-  if (a <= 12) return "שאלות ברמת בית ספר יסודי. דורשות קריאה בסיסית של הטקסט.";
-  return "שאלות מאתגרות עם פרטים ספציפיים מהטקסט — שנים, שמות, מספרים, קשרים סיבתיים.";
+  if (a <= 5)  return "שאלות לגיל גן (2-5). חובה: שאלות פשוטות בלבד על דברים שילד קטן יכול להבין — חיות, צבעים, גדול/קטן, כן/לא. אסור בהחלט: מספרים, תאריכים, שנים, שמות מדעיים, מושגים מופשטים. תשובות של מילה אחת בלבד.";
+  if (a <= 9)  return "שאלות לגיל 6-9. שאלות פשוטות וברורות. אפשר שמות ומקומות בסיסיים. אסור: תאריכים מדויקים, מספרים גדולים, מושגים מדעיים מורכבים. תשובות של 1-2 מילים.";
+  if (a <= 12) return "שאלות לגיל 10-12. שאלות ברמת בית ספר יסודי. אפשר תאריכים ומספרים פשוטים. תשובות של 1-3 מילים.";
+  return "שאלות למבוגרים. שאלות מאתגרות עם פרטים ספציפיים — שנים, מספרים, שמות, קשרים סיבתיים. תשובות של 1-4 מילים.";
 }
 
 // ─── BATCH QUESTION GENERATION ───────────────────────────────────────────────
-// קבץ משתתפים לפי רמת גיל ושלח קריאה אחת לכל קבוצה — חוסך 50-70% בעלויות
 async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions, usedQuestions) {
   var ageRule = getAgeRule(groupMembers[0].age);
   var seed = Math.random().toString(36).slice(2, 8);
-  var usedBlock = usedQuestions && usedQuestions.length
-    ? "\n\nשאלות שכבר נשאלו (אסור לחזור עליהן!):\n" + usedQuestions.slice(-20).map(function(q,i) { return (i+1) + ". " + q; }).join("\n")
-    : "";
-  var example = '{"questions":[{"question":"...","emoji":"🦕","answers":["תשובה-א","תשובה-ב","תשובה-ג","תשובה-ד"],"correct_index":0}]}';
+  var usedBlock = "";
+  if (usedQuestions && usedQuestions.length) {
+    var forbidden = [];
+    usedQuestions.forEach(function(q) {
+      if (Math.random() < 0.7) forbidden.push(q);
+    });
+    if (forbidden.length) {
+      usedBlock = "\n\nשאלות שכבר נשאלו (העדף שאלות חדשות, מותר לחזור על 1-2 לחיזוק):\n" + forbidden.slice(-15).map(function(q,i) { return (i+1) + ". " + q; }).join("\n");
+    }
+  }
+  var example = '{"questions":[{"question":"...","emoji":"🦕","answers":["נכונה","סבירה","סבירה","מצחיקה"],"correct_index":0}]}';
   var prompt = "טקסט:\n" + wikiText + usedBlock
     + "\n\nרמה: " + ageRule
     + "\nכמות שאלות: " + totalQuestions
     + "\n\nחוקים:"
     + "\n1. שאלות מהטקסט בלבד — אסור להמציא עובדות."
-    + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים לחלוטין זה מזה. לפני שאתה כותב שאלה, ודא שהיא לא דומה לאף שאלה קודמת ברשימה — לא אותו נושא, לא אותה עובדה, לא אותו מושג."
-    + "\n3. פזר את השאלות על פני כל חלקי הטקסט — מההתחלה, האמצע והסוף. אל תתמקד בפסקה אחת."
+    + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים. לפני שאתה כותב שאלה, ודא שלא דומה לאף שאלה קודמת — לא אותו נושא, עובדה או מושג."
+    + "\n3. פזר שאלות על כל חלקי הטקסט — התחלה, אמצע וסוף."
     + "\n4. אסור שהתשובה הנכונה תופיע בגוף השאלה."
-    + "\n5. עברית תקנית."
-    + "\n6. 4 תשובות מובחנות — רק אחת נכונה בבירור. המסיחים צריכים להיות סבירים אבל שגויים בבירור."
-    + "\n7. תשובות קצרות, עד 4 מילים."
+    + "\n5. עברית טבעית ותקנית — כמו שמדברים, לא כמו ספר לימוד."
+    + "\n6. 4 תשובות לכל שאלה, כך: תשובה נכונה אחת, 2 מסיחים סבירים שנשמעים אפשריים אבל שגויים, ומסיח אחד הומוריסטי/אבסורדי שברור שהוא לא נכון אבל מצחיק (למשל: אם השאלה על דינוזאורים, מסיח כמו 'פיצה')."
+    + "\n7. אסור שהמסיחים יהיו דומים זה לזה — כל תשובה חייבת להיות שונה בבירור."
     + "\n8. emoji אחד רלוונטי לכל שאלה."
     + "\n9. אל תוסיף שדה explanation."
     + "\n10. seed: " + seed
-    + "\n11. החזר JSON בלבד, ללא טקסט נוסף:\n" + example;
+    + "\n11. JSON בלבד:\n" + example;
 
   var parsed = await callHaiku(prompt);
   var questions = (parsed.questions || []).map(function(q) {
@@ -376,7 +382,9 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   }
   positions.sort(function(a, b) { return a - b; });
   var chunks = positions.map(function(p) { return wikiText.slice(p, p + chunkSize); });
-  var wikiSlice = wikiText.slice(0, 600) + "\n\n..." + chunks.join("\n\n...");
+  // כלול גם קטע מההתחלה — אבל לא תמיד אותו קטע
+  var introStart = Math.floor(Math.random() * Math.min(400, Math.floor(len * 0.15)));
+  var wikiSlice = wikiText.slice(introStart, introStart + 600) + "\n\n..." + chunks.join("\n\n...");
   var usedQ = topic ? getQHistory(topic) : [];
 
   // ─── קיבוץ לפי רמת גיל ───
