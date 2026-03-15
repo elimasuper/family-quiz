@@ -889,7 +889,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                                 style={{ flex:2, display:"block", padding:"10px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 10vw, 17px)", textDecoration:"none", textAlign:"center", boxShadow:"0 4px 20px #16a34a55" }}>
                                 📱 שתף בוואטסאפ
                               </a>
-                              <button onClick={() => { navigator.clipboard?.writeText(plainMsg); }}
+                              <button onClick={function(e) { navigator.clipboard?.writeText(plainMsg); var btn=e.currentTarget; btn.textContent="✅ הועתק!"; btn.style.color="#4ade80"; setTimeout(function(){ btn.textContent="📋 העתק"; btn.style.color="#94a3b8"; }, 2000); }}
                                 style={{ flex:1, padding:"10px", background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.15)", borderRadius:18, color:"#94a3b8", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>
                                 📋 העתק
                               </button>
