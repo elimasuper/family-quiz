@@ -27,11 +27,11 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const sbFetch = async (path, opts = {}) => {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+  const res = await fetch((SUPABASE_URL + "/rest/v1/" + path), {
     ...opts,
     headers: {
       apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
+      Authorization: ("Bearer " + SUPABASE_KEY),
       "Content-Type": "application/json",
       Prefer: opts.prefer || "return=representation",
       ...(opts.headers || {}),
@@ -68,16 +68,16 @@ const addQHistory = (topic, questions) => {
 };
 
 // ─── SUPABASE OPS ─────────────────────────────────────────────────────────────
-const makeCode = () => String(Math.floor(1000 + Math.random() * 9000));
+const makeCode = function() { return String(Math.floor(100000 + Math.random() * 900000)); };
 const todayStr = () => new Date().toISOString().split("T")[0];
 
 async function registerFamily(name, pin, members, setOnline) {
   return sbSafe(async () => {
-    const ex = await sbFetch(`families?name=eq.${encodeURIComponent(name)}&select=name,pin`);
+    const ex = await sbFetch(("families?name=eq." + encodeURIComponent(name) + "&select=name,pin"));
     if (ex && ex.length > 0) {
       if (ex[0].pin !== pin) return { ok: false, error: "PIN שגוי" };
       // משפחה קיימת — טען members מה-DB
-      const full = await sbFetch(`families?name=eq.${encodeURIComponent(name)}&select=*`);
+      const full = await sbFetch(("families?name=eq." + encodeURIComponent(name) + "&select=*"));
       const dbMembers = full?.[0]?.members || [];
       return { ok: true, members: dbMembers };
     }
@@ -87,7 +87,7 @@ async function registerFamily(name, pin, members, setOnline) {
 }
 
 async function updateFamilyMembers(name, pin, members, setOnline) {
-  return sbSafe(() => sbFetch(`families?name=eq.${encodeURIComponent(name)}`, {
+  return sbSafe(() => sbFetch(("families?name=eq." + encodeURIComponent(name)), {
     method: "PATCH", prefer: "return=minimal",
     body: JSON.stringify({ members }),
   }), null, setOnline);
@@ -102,7 +102,7 @@ async function saveQuizRoom(code, topic, familyName, familyPct, setOnline) {
 
 async function loadQuizByCode(code, setOnline) {
   return sbSafe(async () => {
-    const r = await sbFetch(`quiz_rooms?code=eq.${code}&select=*`);
+    const r = await sbFetch(("quiz_rooms?code=eq." + code + "&select=*"));
     return r && r.length > 0 ? r[0] : null;
   }, null, setOnline);
 }
@@ -118,18 +118,18 @@ async function getMyActiveChallenges(familyName, setOnline) {
   return sbSafe(async () => {
     const now = new Date().toISOString();
     // קבל את כל קודי האתגרים של המשפחה
-    const fc = await sbFetch(`family_challenges?family_name=eq.${encodeURIComponent(familyName)}&select=challenge_code`);
+    const fc = await sbFetch(("family_challenges?family_name=eq." + encodeURIComponent(familyName) + "&select=challenge_code"));
     if (!fc || !fc.length) return [];
     const codes = fc.map(r => r.challenge_code);
     // קבל את פרטי החדרים הפעילים
     const rooms = await Promise.all(codes.map(c =>
-      sbFetch(`quiz_rooms?code=eq.${c}&expires_at=gte.${now}&select=code,topic,creator_family,creator_pct`)
+      sbFetch(("quiz_rooms?code=eq." + c + "&expires_at=gte." + now + "&select=code,topic,creator_family,creator_pct"))
         .then(r => r && r.length ? r[0] : null).catch(() => null)
     ));
     const active = rooms.filter(Boolean);
     // קבל ציונים לכל אתגר
     const withScores = await Promise.all(active.map(async room => {
-      const challenges = await sbFetch(`quiz_challenges?code=eq.${room.code}&select=family_name,family_pct&order=family_pct.desc`).catch(() => []);
+      const challenges = await sbFetch(("quiz_challenges?code=eq." + room.code + "&select=family_name,family_pct&order=family_pct.desc")).catch(() => []);
       const myScore = (challenges||[]).find(r => r.family_name === familyName);
       const myRank = myScore ? (challenges||[]).findIndex(r => r.family_name === familyName) + 1 : null;
       return { ...room, challenges: challenges||[], myScore: myScore?.family_pct || null, myRank, total: (challenges||[]).length };
@@ -147,14 +147,14 @@ async function saveChallenge(code, familyName, familyPct, setOnline) {
 
 async function getChallenges(code, setOnline) {
   return sbSafe(async () => {
-    const r = await sbFetch(`quiz_challenges?code=eq.${code}&select=family_name,family_pct&order=family_pct.desc&limit=20`);
+    const r = await sbFetch(("quiz_challenges?code=eq." + code + "&select=family_name,family_pct&order=family_pct.desc&limit=20"));
     return r || [];
   }, [], setOnline);
 }
 
 async function hasPlayedQuiz(code, familyName, setOnline) {
   return sbSafe(async () => {
-    const r = await sbFetch(`quiz_challenges?code=eq.${code}&family_name=eq.${encodeURIComponent(familyName)}&select=id&limit=1`);
+    const r = await sbFetch(("quiz_challenges?code=eq." + code + "&family_name=eq." + encodeURIComponent(familyName) + "&select=id&limit=1"));
     return r && r.length > 0;
   }, false, setOnline);
 }
@@ -182,8 +182,8 @@ function calcBadges(scores, members, isChampion=false, streak=0) {
 async function getMonthlyBoard(setOnline) {
   return sbSafe(async () => {
     const [pts, avg] = await Promise.all([
-      sbFetch(`family_scores?select=family_name,monthly_points&order=monthly_points.desc&limit=10`),
-      sbFetch(`family_scores?select=family_name,monthly_avg,monthly_games&order=monthly_avg.desc&limit=10`),
+      sbFetch("family_scores?select=family_name,monthly_points&order=monthly_points.desc&limit=10"),
+      sbFetch("family_scores?select=family_name,monthly_avg,monthly_games&order=monthly_avg.desc&limit=10"),
     ]);
     return { pts: pts||[], avg: avg||[] };
   }, { pts:[], avg:[] }, setOnline);
@@ -191,7 +191,7 @@ async function getMonthlyBoard(setOnline) {
 
 async function upsertScore(familyName, rawScore, pct, setOnline) {
   return sbSafe(async () => {
-    const ex = await sbFetch(`family_scores?family_name=eq.${encodeURIComponent(familyName)}&select=*`);
+    const ex = await sbFetch(("family_scores?family_name=eq." + encodeURIComponent(familyName) + "&select=*"));
     const today = todayStr();
     const thisMonth = today.slice(0,7); // "2026-03"
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
@@ -205,7 +205,7 @@ async function upsertScore(familyName, rawScore, pct, setOnline) {
       const mGames = sameMonth ? (r.monthly_games||0)+1 : 1;
       const mPoints = sameMonth ? (r.monthly_points||0)+rawScore : rawScore;
       const mAvg = sameMonth ? Math.round(((r.monthly_avg||0)*(mGames-1)+pct)/mGames) : pct;
-      await sbFetch(`family_scores?family_name=eq.${encodeURIComponent(familyName)}`, {
+      await sbFetch(("family_scores?family_name=eq." + encodeURIComponent(familyName)), {
         method: "PATCH", prefer: "return=minimal",
         body: JSON.stringify({ weekly_points: rawScore, total_games: r.total_games+1, streak, last_played: today, last_month: thisMonth, monthly_points: mPoints, monthly_games: mGames, monthly_avg: mAvg }),
       });
@@ -228,14 +228,14 @@ const ag = (age) => {
 };
 
 async function searchWikiResults(query) {
-  const sr = await fetch(`https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=6&format=json&origin=*`);
+  const sr = await fetch(("https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + encodeURIComponent(query) + "&srlimit=6&format=json&origin=*"));
   const hits = ((await sr.json())?.query?.search) || [];
   return hits.map(h => ({ title: h.title, snippet: h.snippet.replace(/<[^>]+>/g, '').slice(0, 80) }));
 }
 
 async function fetchWiki(topic) {
   const get = async (title) => {
-    const r = await fetch(`https://he.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=extracts&explaintext=true&exsectionformat=plain&format=json&origin=*&redirects=1`);
+    const r = await fetch(("https://he.wikipedia.org/w/api.php?action=query&titles=" + encodeURIComponent(title) + "&prop=extracts&explaintext=true&exsectionformat=plain&format=json&origin=*&redirects=1"));
     const d = await r.json();
     const p = Object.values(d.query.pages)[0];
     if (p.extract && p.extract.length >= 300) {
@@ -248,93 +248,179 @@ async function fetchWiki(topic) {
   };
   const direct = await get(topic);
   if (direct) return direct;
-  const sr = await fetch(`https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&srlimit=3&format=json&origin=*`);
+  const sr = await fetch(("https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + encodeURIComponent(topic) + "&srlimit=3&format=json&origin=*"));
   const hits = ((await sr.json())?.query?.search) || [];
   for (const h of hits) { const r = await get(h.title); if (r) return r; }
-  throw new Error(`לא נמצא מאמר בויקיפדיה על "${topic}". נסו נושא אחר.`);
+  throw new Error("לא נמצא מאמר בויקיפדיה על \"" + topic + "\". נסו נושא אחר.");
 }
 
 // ─── AI ───────────────────────────────────────────────────────────────────────
-async function callHaiku(prompt) {
-  const res = await fetch("/api/claude", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4096, messages: [{ role: "user", content: prompt }] }),
-  });
-  const data = await res.json();
-  if (data.error) throw new Error("שגיאת API: " + (data.error.message || JSON.stringify(data.error)));
-  const raw = (data.content?.[0]?.text || "").trim();
-  if (!raw) throw new Error("תשובה ריקה — בדוק ANTHROPIC_API_KEY ב-Vercel");
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("תגובת AI לא תקינה: " + raw.slice(0, 150));
-  const text = jsonMatch[0];
-  const tryParse = (t) => {
-    try { return JSON.parse(t); } catch {}
-    try { return JSON.parse(t.replace(/,\s*([\]\}])/g, "$1")); } catch {}
+async function callHaiku(prompt, maxRetries) {
+  var retries = maxRetries || 2;
+  var lastError = null;
+  for (var attempt = 0; attempt <= retries; attempt++) {
     try {
-      const fixed = t.replace(/:[ ]*"((?:[^"\\]|\\.)*)"/g, (match, val) => {
-        const cleaned = val.replace(/(?<!\\)"/g, "'");
-        return ': "' + cleaned + '"';
+      var res = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4096, messages: [{ role: "user", content: prompt }] }),
       });
-      return JSON.parse(fixed);
-    } catch {}
-    return null;
-  };
-  const autoFix = (t) => {
-    let fixed = t;
-    const opens = (fixed.match(/\[/g)||[]).length - (fixed.match(/\]/g)||[]).length;
-    const openc = (fixed.match(/\{/g)||[]).length - (fixed.match(/\}/g)||[]).length;
-    for (let i=0; i<opens; i++) fixed += "]";
-    for (let i=0; i<openc; i++) fixed += "}";
-    return tryParse(fixed);
-  };
-  const parsed = tryParse(text) || autoFix(text);
-  if (!parsed) throw new Error("JSON: " + text.slice(-150));
-  return parsed;
+      var data = await res.json();
+      if (data.error) {
+        var errMsg = data.error.message || JSON.stringify(data.error);
+        // rate limit or server error — retry
+        if ((res.status === 429 || res.status >= 500) && attempt < retries) {
+          lastError = new Error("שגיאת API: " + errMsg);
+          await new Promise(function(r) { setTimeout(r, 1000 * (attempt + 1)); });
+          continue;
+        }
+        throw new Error("שגיאת API: " + errMsg);
+      }
+      var raw = (data.content && data.content[0] && data.content[0].text || "").trim();
+      if (!raw) throw new Error("תשובה ריקה — בדוק ANTHROPIC_API_KEY ב-Vercel");
+      var jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("תגובת AI לא תקינה: " + raw.slice(0, 150));
+      var text = jsonMatch[0];
+      var tryParse = function(t) {
+        try { return JSON.parse(t); } catch(e1) {}
+        try { return JSON.parse(t.replace(/,\s*([\]\}])/g, "$1")); } catch(e2) {}
+        try {
+          var fixed = t.replace(/:[ ]*"((?:[^"\\]|\\.)*)"/g, function(match, val) {
+            var cleaned = val.replace(/(?<!\\)"/g, "'");
+            return ': "' + cleaned + '"';
+          });
+          return JSON.parse(fixed);
+        } catch(e3) {}
+        return null;
+      };
+      var autoFix = function(t) {
+        var fixed = t;
+        var opens = (fixed.match(/\[/g)||[]).length - (fixed.match(/\]/g)||[]).length;
+        var openc = (fixed.match(/\{/g)||[]).length - (fixed.match(/\}/g)||[]).length;
+        for (var i=0; i<opens; i++) fixed += "]";
+        for (var i=0; i<openc; i++) fixed += "}";
+        return tryParse(fixed);
+      };
+      var parsed = tryParse(text) || autoFix(text);
+      if (!parsed) throw new Error("JSON: " + text.slice(-150));
+      return parsed;
+    } catch(e) {
+      lastError = e;
+      if (attempt < retries) {
+        await new Promise(function(r) { setTimeout(r, 1000 * (attempt + 1)); });
+        continue;
+      }
+    }
+  }
+  throw lastError || new Error("שגיאה לא צפויה");
 }
 
-async function generateQuestionsForMember(wikiText, member, usedQuestions) {
-  const g = ag(member.age);
-  let ageRule = "";
-  if (member.age <= 5)  ageRule = "שאלות מאוד קלות — דברים שילד בגן מכיר. תשובות של מילה אחת.";
-  else if (member.age <= 8)  ageRule = "שאלות פשוטות ומהנות. תשובות קצרות.";
-  else if (member.age <= 12) ageRule = "שאלות ברמת בית ספר יסודי.";
-  else ageRule = "שאלות מאתגרות עם פרטים ספציפיים מהטקסט.";
-  const example = '{"questions":[{"question":"...","emoji":"🦕","answers":["א","ב","ג","ד"],"correct_index":0}]}';
-  // seed רנדומלי — מבטיח שאלות שונות בכל קריאה
-  const seed = Math.random().toString(36).slice(2, 6);
-  const usedBlock = usedQuestions && usedQuestions.length ? "\n\nשאלות שכבר נשאלו (אסור לחזור עליהן):\n" + usedQuestions.slice(-15).map((q,i) => (i+1) + ". " + q).join("\n") : "";
-  const prompt = "טקסט:\n" + wikiText + usedBlock + "\n\nמשתתף: " + member.name + ", גיל " + member.age + "\nרמה: " + ageRule + "\nכמות שאלות: " + g.qCount + "\n\nחוקים: 1. שאלות מהטקסט בלבד. 2. כל שאלה על היבט שונה לחלוטין — נושאים שונים, עובדות שונות, אין שתי שאלות על אותו דבר. 3. אסור שהתשובה תופיע בניסוח השאלה. 4. עברית תקנית. 5. 4 תשובות מובחנות. 6. תשובות קצרות עד 4 מילים. 7. emoji לכל שאלה. 8. אל תוסיף שדה explanation. 9. התחל מנקודה אקראית בטקסט (seed: " + seed + "). 10. JSON בלבד:\n" + example;
-  const parsed = await callHaiku(prompt);
-  const questions = (parsed.questions || []).map(q => {
-    const correct = q.answers[q.correct_index];
-    const shuffled = [...q.answers].sort(() => Math.random() - 0.5);
-    return { ...q, answers: shuffled, correct_index: shuffled.indexOf(correct) };
+// ─── AGE RULES ───────────────────────────────────────────────────────────────
+function getAgeRule(age) {
+  var a = parseInt(age) || 99;
+  if (a <= 5)  return "שאלות מאוד קלות לגיל גן — דברים פשוטים וברורים. תשובות של מילה-שתיים.";
+  if (a <= 9)  return "שאלות פשוטות ומהנות לגיל בית ספר. תשובות קצרות וברורות.";
+  if (a <= 12) return "שאלות ברמת בית ספר יסודי. דורשות קריאה בסיסית של הטקסט.";
+  return "שאלות מאתגרות עם פרטים ספציפיים מהטקסט — שנים, שמות, מספרים, קשרים סיבתיים.";
+}
+
+// ─── BATCH QUESTION GENERATION ───────────────────────────────────────────────
+// קבץ משתתפים לפי רמת גיל ושלח קריאה אחת לכל קבוצה — חוסך 50-70% בעלויות
+async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions, usedQuestions) {
+  var ageRule = getAgeRule(groupMembers[0].age);
+  var seed = Math.random().toString(36).slice(2, 8);
+  var usedBlock = usedQuestions && usedQuestions.length
+    ? "\n\nשאלות שכבר נשאלו (אסור לחזור עליהן!):\n" + usedQuestions.slice(-20).map(function(q,i) { return (i+1) + ". " + q; }).join("\n")
+    : "";
+  var example = '{"questions":[{"question":"...","emoji":"🦕","answers":["תשובה-א","תשובה-ב","תשובה-ג","תשובה-ד"],"correct_index":0}]}';
+  var prompt = "טקסט:\n" + wikiText + usedBlock
+    + "\n\nרמה: " + ageRule
+    + "\nכמות שאלות: " + totalQuestions
+    + "\n\nחוקים:"
+    + "\n1. שאלות מהטקסט בלבד — אסור להמציא עובדות."
+    + "\n2. כל שאלה חייבת להיות על נושא/עובדה/היבט אחר לגמרי — אסור ששתי שאלות יעסקו באותו עניין, אותה פסקה, או אותו פרט."
+    + "\n3. פזר את השאלות על פני כל חלקי הטקסט — מההתחלה, האמצע והסוף."
+    + "\n4. אסור שהתשובה הנכונה תופיע בגוף השאלה."
+    + "\n5. עברית תקנית."
+    + "\n6. 4 תשובות מובחנות — רק אחת נכונה בבירור. המסיחים צריכים להיות סבירים אבל שגויים."
+    + "\n7. תשובות קצרות, עד 4 מילים."
+    + "\n8. emoji אחד רלוונטי לכל שאלה."
+    + "\n9. אל תוסיף שדה explanation."
+    + "\n10. seed: " + seed
+    + "\n11. החזר JSON בלבד, ללא טקסט נוסף:\n" + example;
+
+  var parsed = await callHaiku(prompt);
+  var questions = (parsed.questions || []).map(function(q) {
+    var correct = q.answers[q.correct_index];
+    var shuffled = [].concat(q.answers).sort(function() { return Math.random() - 0.5; });
+    return { question: q.question, emoji: q.emoji, answers: shuffled, correct_index: shuffled.indexOf(correct) };
   });
-  return { name: member.name, questions };
+  return questions;
 }
 
 async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   // בחר קטעים רנדומליים מהטקסט המלא — שונים בכל חידון
-  const len = wikiText.length;
-  const chunkSize = 700;
-  const numChunks = Math.max(3, Math.floor(len / chunkSize));
-  // בחר 3 נקודות התחלה רנדומליות שונות
-  const positions = [];
-  while (positions.length < 3) {
-    const pos = Math.floor(Math.random() * (len - chunkSize));
-    if (positions.every(p => Math.abs(p - pos) > chunkSize)) positions.push(pos);
-    if (positions.length === 0 && len < chunkSize * 3) { positions.push(0); break; }
+  var len = wikiText.length;
+  var chunkSize = 700;
+  var positions = [];
+  if (len <= chunkSize * 2) {
+    positions = [0];
+  } else {
+    var maxAttempts = 50;
+    var attempts = 0;
+    while (positions.length < 3 && attempts < maxAttempts) {
+      attempts++;
+      var pos = Math.floor(Math.random() * Math.max(1, len - chunkSize));
+      if (positions.every(function(p) { return Math.abs(p - pos) > chunkSize; })) positions.push(pos);
+    }
   }
-  positions.sort((a, b) => a - b);
-  const chunks = positions.map(p => wikiText.slice(p, p + chunkSize));
-  // תמיד כלול גם את ההתחלה (הכי חשובה)
-  const wikiSlice = wikiText.slice(0, 600) + "\n\n..." + chunks.join("\n\n...");
-  const usedQ = topic ? getQHistory(topic) : [];
-  const results = await Promise.all(members.map(m => generateQuestionsForMember(wikiSlice, m, usedQ)));
+  positions.sort(function(a, b) { return a - b; });
+  var chunks = positions.map(function(p) { return wikiText.slice(p, p + chunkSize); });
+  var wikiSlice = wikiText.slice(0, 600) + "\n\n..." + chunks.join("\n\n...");
+  var usedQ = topic ? getQHistory(topic) : [];
+
+  // ─── קיבוץ לפי רמת גיל ───
+  // כל אנשי אותה רמה מקבלים שאלות מקריאה אחת — חוסך קריאות API
+  var levelKey = function(m) {
+    var a = parseInt(m.age) || 99;
+    if (a <= 5) return "gan";
+    if (a <= 9) return "young";
+    if (a <= 12) return "mid";
+    return "adv";
+  };
+  var groups = {};
+  var memberOrder = [];
+  members.forEach(function(m) {
+    var k = levelKey(m);
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(m);
+    memberOrder.push({ name: m.name, level: k });
+  });
+
+  // שלח קריאה אחת לכל קבוצת גיל
+  var groupResults = {};
+  var groupPromises = Object.keys(groups).map(function(k) {
+    var groupMembers = groups[k];
+    var g = ag(groupMembers[0].age);
+    var totalQ = groupMembers.length * g.qCount;
+    return generateQuestionsForGroup(wikiSlice, groupMembers, totalQ, usedQ).then(function(questions) {
+      groupResults[k] = questions;
+    });
+  });
+  await Promise.all(groupPromises);
+
+  // חלק את השאלות שווה בשווה בין חברי כל קבוצה
+  var results = members.map(function(m) {
+    var k = levelKey(m);
+    var g = ag(m.age);
+    var pool = groupResults[k] || [];
+    var myQuestions = pool.splice(0, g.qCount); // קח את ה-qCount הבאות מהמאגר
+    return { name: m.name, questions: myQuestions };
+  });
+
   // שמור שאלות ב-history למניעת חזרות
   if (topic) {
-    const allQ = results.flatMap(r => (r && r.questions) ? r.questions : []);
+    var allQ = results.flatMap(function(r) { return (r && r.questions) ? r.questions : []; });
     addQHistory(topic, allQ);
   }
   return { members: results };
@@ -342,41 +428,70 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
 
 // ─── QUESTION VALIDATION ─────────────────────────────────────────────────────
 async function validateQuestions(quizData, wikiText) {
-  // pass שני — בדוק שכל שאלה מבוססת על הטקסט ושה-correct_index נכון
-  const allQuestions = quizData.members.flatMap(m =>
-    m.questions.map((q, qi) => ({ member: m.name, qi, question: q.question, answers: q.answers, correct_index: q.correct_index, correct_answer: q.answers[q.correct_index] }))
-  );
+  var allQuestions = quizData.members.flatMap(function(m) {
+    return m.questions.map(function(q, qi) {
+      return { member: m.name, qi: qi, question: q.question, answers: q.answers, correct_index: q.correct_index, correct_answer: q.answers[q.correct_index] };
+    });
+  });
   if (!allQuestions.length) return quizData;
 
-  const list = allQuestions.map((q, i) => `${i+1}. שאלה: "${q.question}" | תשובה נכונה: "${q.correct_answer}"`).join("\n");
-  const prompt = `טקסט מקור:\n${wikiText.slice(0, 1500)}\n\nרשימת שאלות ותשובות:\n${list}\n\nבדוק כל שאלה: האם התשובה הנכונה מופיעה או נובעת מהטקסט? החזר JSON בלבד, מערך של מספרי השאלות הבעייתיות (שאינן מבוססות על הטקסט): {"invalid":[1,3,5]} — אם הכל תקין: {"invalid":[]}`;
+  // בדיקת כפילויות בצד הלקוח — סנן שאלות דומות מדי לפני שליחה ל-AI
+  var seen = {};
+  var dupeIndices = new Set();
+  allQuestions.forEach(function(q, i) {
+    // נרמל: הורד סימני פיסוק ורווחים מיותרים
+    var norm = q.question.replace(/[?.!,،؟]/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
+    if (seen[norm]) { dupeIndices.add(i); }
+    else { seen[norm] = true; }
+  });
+
+  // סנן כפילויות
+  if (dupeIndices.size > 0) {
+    var globalIdx0 = 0;
+    quizData = {
+      members: quizData.members.map(function(m) {
+        return {
+          name: m.name,
+          questions: m.questions.filter(function() { return !dupeIndices.has(globalIdx0++); })
+        };
+      })
+    };
+    // עדכן allQuestions
+    allQuestions = allQuestions.filter(function(q, i) { return !dupeIndices.has(i); });
+  }
+
+  // validation pass ב-AI — בדוק שהתשובות מבוססות על הטקסט
+  var list = allQuestions.map(function(q, i) { return (i+1) + ". " + q.question + " → " + q.correct_answer; }).join("\n");
+  var prompt = "טקסט מקור (קטע):\n" + wikiText.slice(0, 1800)
+    + "\n\nשאלות ותשובות:\n" + list
+    + "\n\nבדוק: האם התשובה הנכונה של כל שאלה מבוססת על הטקסט? האם יש שאלות שחוזרות על אותו נושא?"
+    + "\nהחזר JSON: {\"invalid\":[]} — מספרי שאלות שגויות או כפולות. אם הכל תקין: {\"invalid\":[]}";
 
   try {
-    const res = await fetch("/api/claude", {
+    var res = await fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 300, messages: [{ role: "user", content: prompt }] }),
     });
-    const data = await res.json();
-    const raw = (data.content?.[0]?.text || "").trim();
-    const match = raw.match(/\{[\s\S]*\}/);
+    var data = await res.json();
+    var raw = (data.content && data.content[0] && data.content[0].text || "").trim();
+    var match = raw.match(/\{[\s\S]*\}/);
     if (!match) return quizData;
-    const result = JSON.parse(match[0]);
-    const invalidSet = new Set((result.invalid || []).map(n => n - 1)); // 0-indexed
+    var result = JSON.parse(match[0]);
+    var invalidSet = new Set((result.invalid || []).map(function(n) { return n - 1; }));
     if (!invalidSet.size) return quizData;
 
-    // הסר שאלות בעייתיות
-    let globalIdx = 0;
-    const cleaned = {
-      ...quizData,
-      members: quizData.members.map(m => ({
-        ...m,
-        questions: m.questions.filter(() => !invalidSet.has(globalIdx++))
-      }))
+    var globalIdx = 0;
+    return {
+      members: quizData.members.map(function(m) {
+        return {
+          name: m.name,
+          questions: m.questions.filter(function() { return !invalidSet.has(globalIdx++); })
+        };
+      })
     };
-    return cleaned;
-  } catch {
-    return quizData; // אם הvalidation נכשל — השתמש בשאלות המקוריות
+  } catch(e) {
+    return quizData;
   }
 }
 
@@ -421,7 +536,7 @@ function Confetti({ active }) {
   return (
     <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:9999, overflow:"hidden" }}>
       {Array.from({length:55}).map((_,i) => (
-        <div key={i} style={{ position:"absolute", left:`${Math.random()*100}%`, top:"-20px", width:6+Math.random()*10, height:6+Math.random()*10, borderRadius:Math.random()>.5?"50%":"2px", background:cols[i%cols.length], animation:`fall ${1+Math.random()*1.5}s ease-in forwards`, animationDelay:`${Math.random()*.8}s` }} />
+        <div key={i} style={{ position:"absolute", left:(Math.random()*100 + "%"), top:"-20px", width:6+Math.random()*10, height:6+Math.random()*10, borderRadius:Math.random()>.5?"50%":"2px", background:cols[i%cols.length], animation:("fall " + (1+Math.random()*1.5) + "s ease-in forwards"), animationDelay:(Math.random()*.8 + "s") }} />
       ))}
     </div>
   );
@@ -438,7 +553,7 @@ function Spotlight({ member, onDone }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", animation:"fadeSpot 1.4s ease forwards" }}>
       <div style={{ textAlign:"center", animation:"popIn .4s ease" }}>
-        <div style={{ width:90, height:90, borderRadius:"50%", background:`${g.color}22`, border:`3px solid ${g.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(44px, 23vw, 53px)", margin:"0 auto 12px", boxShadow:`0 0 40px ${g.color}88` }}>{g.emoji}</div>
+        <div style={{ width:90, height:90, borderRadius:"50%", background:(g.color + "22"), border:("3px solid " + g.color), display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(44px, 23vw, 53px)", margin:"0 auto 12px", boxShadow:("0 0 40px " + g.color + "88") }}>{g.emoji}</div>
         <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(32px, 19vw, 40px)" }}>תור של {member.name}!</div>
         <div style={{ color:g.color, fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(18px, 13vw, 25px)", marginTop:6 }}>{g.label}</div>
       </div>
@@ -452,7 +567,8 @@ function TimerBar({ seconds, color, onExpire, onTick }) {
   useEffect(() => {
     if (!seconds) return;
     setLeft(seconds);
-    iv.current = setInterval(() => setLeft(l => { if (l <= 1) { clearInterval(iv.current); onExpire(); return 0; } return l - 1; }), 1000);
+    if (onTick) onTick(seconds);
+    iv.current = setInterval(() => setLeft(l => { const next = l - 1; if (next <= 0) { clearInterval(iv.current); if (onTick) onTick(0); onExpire(); return 0; } if (onTick) onTick(next); return next; }), 1000);
     return () => clearInterval(iv.current);
   }, [seconds]);
   if (!seconds) return null;
@@ -461,7 +577,7 @@ function TimerBar({ seconds, color, onExpire, onTick }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
       <div style={{ flex:1, background:"rgba(255,255,255,0.1)", borderRadius:20, height:10, overflow:"hidden" }}>
-        <div style={{ width:`${pct*100}%`, height:"100%", background:col, borderRadius:20, transition:"width 1s linear, background .3s" }} />
+        <div style={{ width:(pct*100 + "%"), height:"100%", background:col, borderRadius:20, transition:"width 1s linear, background .3s" }} />
       </div>
       <div style={{ color:col, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", minWidth:32, textAlign:"center", animation:left<=5?"shake .3s ease infinite":"none" }}>{left}</div>
     </div>
@@ -577,7 +693,7 @@ function WelcomeScreen({ onDone }) {
               const g = m.age ? ag(parseInt(m.age)) : null;
               return (
                 <div key={i} style={{ display:"flex", gap:8, marginBottom:10, alignItems:"center" }}>
-                  <div style={{ width:36, height:36, borderRadius:"50%", background:g?`${g.color}22`:"rgba(255,255,255,.08)", border:`2px solid ${g?g.color:"rgba(255,255,255,.15)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)", flexShrink:0, transition:"all .3s" }}>{g?g.emoji:"👤"}</div>
+                  <div style={{ width:36, height:36, borderRadius:"50%", background:g?(g.color + "22"):"rgba(255,255,255,.08)", border:("2px solid " + (g?g.color:"rgba(255,255,255,.15)")), display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)", flexShrink:0, transition:"all .3s" }}>{g?g.emoji:"👤"}</div>
                   <input value={m.name} onChange={e=>upd(i,"name",e.target.value)} placeholder="שם"
                     style={{ ...C.inp, flex:2, padding:"9px 12px", marginBottom:0 }}
                     onFocus={e=>e.target.style.borderColor="#4ade80"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"} />
@@ -664,7 +780,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                 return (
                   <div key={ch.code} style={{ marginBottom:8 }}>
                     <button onClick={() => setSelectedChallenge(isOpen ? null : ch.code)}
-                      style={{ width:"100%", background:isOpen?"rgba(167,139,250,.15)":"rgba(255,255,255,.04)", border:`1px solid ${isOpen?"#a78bfa44":"rgba(255,255,255,.08)"}`, borderRadius:14, padding:"12px", cursor:"pointer", textAlign:"right", transition:"all .2s" }}>
+                      style={{ width:"100%", background:isOpen?"rgba(167,139,250,.15)":"rgba(255,255,255,.04)", border:("1px solid " + (isOpen?"#a78bfa44":"rgba(255,255,255,.08)")), borderRadius:14, padding:"12px", cursor:"pointer", textAlign:"right", transition:"all .2s" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                         <div style={{ flex:1 }}>
                           <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>{ch.topic}</div>
@@ -698,8 +814,8 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                             const isMe = r.family_name === family.name;
                             const rank = all.findIndex(x => x.family_name === r.family_name) + 1;
                             return (
-                              <div key={ri} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 8px", marginBottom:4, background:isMe?"rgba(167,139,250,.15)":"transparent", borderRadius:10, border:`1px solid ${isMe?"#a78bfa44":"transparent"}` }}>
-                                <span style={{ fontSize:"clamp(16px, 12vw, 20px)", minWidth:22 }}>{rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":`${rank}.`}</span>
+                              <div key={ri} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 8px", marginBottom:4, background:isMe?"rgba(167,139,250,.15)":"transparent", borderRadius:10, border:("1px solid " + (isMe?"#a78bfa44":"transparent")) }}>
+                                <span style={{ fontSize:"clamp(16px, 12vw, 20px)", minWidth:22 }}>{rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":(rank + ".")}</span>
                                 <span style={{ flex:1, color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 18px)" }}>{r.family_name}{isMe?" ← אתם":""}</span>
                                 <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.family_pct}%</span>
                               </div>
@@ -736,12 +852,12 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
           <div style={C.card}>
             <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 14px" }}>קיבלתם קוד מחברים? הכניסו אותו ותתחרו!</p>
             <label style={C.lbl}>🔑 קוד החידון</label>
-            <input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="1234" maxLength={4} type="text" inputMode="numeric"
+            <input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="123456" maxLength={6} type="text" inputMode="numeric"
               style={{ ...C.inp, fontSize:"clamp(32px, 19vw, 40px)", textAlign:"center", letterSpacing:10, fontFamily:"'Fredoka One',cursive" }}
               onFocus={e=>e.target.style.borderColor="#fbbf24"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"}
-              onKeyDown={e=>e.key==="Enter"&&code.length===4&&onJoin(code)} />
-            <button onClick={() => code.length===4&&onJoin(code)} disabled={code.length!==4}
-              style={{ ...C.btnP, opacity:code.length===4?1:0.4, background:"linear-gradient(135deg,#d97706,#b45309)" }}>
+              onKeyDown={e=>e.key==="Enter"&&code.length>=4&&onJoin(code)} />
+            <button onClick={() => code.length>=4&&onJoin(code)} disabled={code.length<4}
+              style={{ ...C.btnP, opacity:code.length>=4?1:0.4, background:"linear-gradient(135deg,#d97706,#b45309)" }}>
               ⚔️ קבל את האתגר!
             </button>
           </div>
@@ -755,8 +871,8 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
           {(monthly.pts||[]).map((r,i) => {
             const isMe = r.family_name === family.name;
             return (
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", marginBottom:6, background:isMe?"rgba(167,139,250,0.15)":"rgba(255,255,255,0.03)", borderRadius:12, border:`1px solid ${isMe?"#a78bfa44":"transparent"}` }}>
-                <span style={{ fontSize:"clamp(18px, 13vw, 25px)", minWidth:24 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", marginBottom:6, background:isMe?"rgba(167,139,250,0.15)":"rgba(255,255,255,0.03)", borderRadius:12, border:("1px solid " + (isMe?"#a78bfa44":"transparent")) }}>
+                <span style={{ fontSize:"clamp(18px, 13vw, 25px)", minWidth:24 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":(i+1 + ".")}</span>
                 <span style={{ flex:1, color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)" }}>{r.family_name}{isMe?" (אתם)":""}</span>
                 <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)" }}>{r.monthly_points}נק'</span>
                 {r.streak > 1 && <span style={{ fontSize:"clamp(15px, 11vw, 21px)" }}>🔥{r.streak}</span>}
@@ -824,7 +940,7 @@ function TopicPicker({ onStart }) {
       {!searchDone && (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginTop:4, marginBottom:10 }}>
           {quick.map(({e,t}) => (
-            <button key={t} onClick={() => { pickQuick(t); onStart(t); }} style={{ background:topic===t?"rgba(167,139,250,.25)":"rgba(255,255,255,.05)", border:`1px solid ${topic===t?"#a78bfa":"rgba(255,255,255,.1)"}`, borderRadius:12, padding:"9px 4px", cursor:"pointer", color:"#fff", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", textAlign:"center", transition:"all .2s" }}>
+            <button key={t} onClick={() => { pickQuick(t); onStart(t); }} style={{ background:topic===t?"rgba(167,139,250,.25)":"rgba(255,255,255,.05)", border:("1px solid " + topic===t?"#a78bfa":"rgba(255,255,255,.1)"), borderRadius:12, padding:"9px 4px", cursor:"pointer", color:"#fff", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", textAlign:"center", transition:"all .2s" }}>
               <div style={{ fontSize:"clamp(20px, 14vw, 26px)", marginBottom:2 }}>{e}</div>{t}
             </button>
           ))}
@@ -867,7 +983,7 @@ function EditFamilyScreen({ family, onSave, onBack, onDelete }) {
           const g = m.age ? ag(parseInt(m.age)) : null;
           return (
             <div key={i} style={{ display:"flex", gap:8, marginBottom:10, alignItems:"center" }}>
-              <div style={{ width:36, height:36, borderRadius:"50%", background:g?`${g.color}22`:"rgba(255,255,255,.08)", border:`2px solid ${g?g.color:"rgba(255,255,255,.15)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)", flexShrink:0 }}>{g?g.emoji:"👤"}</div>
+              <div style={{ width:36, height:36, borderRadius:"50%", background:g?(g.color + "22"):"rgba(255,255,255,.08)", border:("2px solid " + (g?g.color:"rgba(255,255,255,.15)")), display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)", flexShrink:0 }}>{g?g.emoji:"👤"}</div>
               <input value={m.name} onChange={e=>upd(i,"name",e.target.value)} placeholder="שם"
                 style={{ ...C.inp, flex:2, padding:"9px 12px", marginBottom:0 }}
                 onFocus={e=>e.target.style.borderColor="#4ade80"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"} />
@@ -904,7 +1020,7 @@ function LoadingScreen({ msg, emoji }) {
       <h2 style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(26px, 16vw, 32px)", marginBottom:8 }}>{msg}</h2>
       <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)" }}>מכין חידון מותאם לכל אחד...</p>
       <div style={{ display:"flex", gap:10, justifyContent:"center", marginTop:24 }}>
-        {[0,1,2,3].map(i => <div key={i} style={{ width:10, height:10, borderRadius:"50%", background:"#a78bfa", animation:`pulse 1.4s ease ${i*.3}s infinite` }} />)}
+        {[0,1,2,3].map(i => <div key={i} style={{ width:10, height:10, borderRadius:"50%", background:"#a78bfa", animation:("pulse 1.4s ease " + (i*.3) + "s infinite") }} />)}
       </div>
     </div>
   );
@@ -976,11 +1092,11 @@ function QuizScreen({ quizData, members, onFinish }) {
           <span>שאלה {ti+1} / {turns.length}</span><span>{progress}%</span>
         </div>
         <div style={{ background:"rgba(255,255,255,.08)", borderRadius:20, height:8, overflow:"hidden" }}>
-          <div style={{ width:`${progress}%`, height:"100%", background:"linear-gradient(90deg,#a78bfa,#60a5fa)", borderRadius:20, transition:"width .5s ease" }} />
+          <div style={{ width:(progress + "%"), height:"100%", background:"linear-gradient(90deg,#a78bfa,#60a5fa)", borderRadius:20, transition:"width .5s ease" }} />
         </div>
         <div style={{ display:"flex", gap:6, marginTop:8, flexWrap:"wrap" }}>
           {members.map(m => { const mg=ag(m.age); const s=scores[m.name]; return (
-            <div key={m.name} style={{ display:"flex", alignItems:"center", gap:4, opacity:m.name===member.name?1:.4, transition:"opacity .3s", background:m.name===member.name?`${mg.color}22`:"transparent", borderRadius:20, padding:"2px 8px 2px 4px", border:m.name===member.name?`1px solid ${mg.color}44`:"1px solid transparent" }}>
+            <div key={m.name} style={{ display:"flex", alignItems:"center", gap:4, opacity:m.name===member.name?1:.4, transition:"opacity .3s", background:m.name===member.name?(mg.color + "22"):"transparent", borderRadius:20, padding:"2px 8px 2px 4px", border:m.name===member.name?("1px solid " + mg.color + "44"):"1px solid transparent" }}>
               <span style={{ fontSize:"clamp(17px, 12vw, 24px)" }}>{mg.emoji}</span>
               <span style={{ color:mg.color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(15px, 11vw, 21px)" }}>{s.points||0}נק'</span>
             </div>
@@ -988,9 +1104,9 @@ function QuizScreen({ quizData, members, onFinish }) {
         </div>
       </div>
 
-      <div style={{ ...C.card, borderColor:`${g.color}44`, animation:"slideIn .3s ease" }}>
+      <div style={{ ...C.card, borderColor:(g.color + "44"), animation:"slideIn .3s ease" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-          <div style={{ width:42, height:42, borderRadius:"50%", background:`${g.color}22`, border:`2.5px solid ${g.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(20px, 14vw, 26px)", flexShrink:0, boxShadow:!done?`0 0 16px ${g.color}66`:"none", transition:"box-shadow .3s" }}>{g.emoji}</div>
+          <div style={{ width:42, height:42, borderRadius:"50%", background:(g.color + "22"), border:("2.5px solid " + g.color), display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(20px, 14vw, 26px)", flexShrink:0, boxShadow:!done?("0 0 16px " + g.color + "66"):"none", transition:"box-shadow .3s" }}>{g.emoji}</div>
           <div style={{ flex:1 }}>
             <div style={{ color:g.color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)" }}>תור של {member.name}</div>
             <div style={{ color:"#334155", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif" }}>{g.label}{g.bonus?" · ⚡ בונוס מהירות":""}</div>
@@ -1008,10 +1124,10 @@ function QuizScreen({ quizData, members, onFinish }) {
             if (done) { if(i===question.correct_index){bg="#16a34a33";brd="#4ade80";}else if(i===sel){bg="#dc262633";brd="#f87171";} }
             return (
               <button key={i} onClick={() => answer(i)}
-                style={{ background:bg, border:`2px solid ${brd}`, borderRadius:14, padding:member.age<=5?"16px 10px":"11px 12px", cursor:done?"default":"pointer", display:"flex", alignItems:"center", gap:8, transition:"all .2s", fontFamily:"'Varela Round',sans-serif", color:"#fff", fontSize:member.age<=5?16:14, textAlign:"right", animation:done&&i===question.correct_index?"correctPulse .5s ease":done&&i===sel&&i!==question.correct_index?"shake .3s ease":"" }}
+                style={{ background:bg, border:("2px solid " + brd), borderRadius:14, padding:member.age<=5?"16px 10px":"11px 12px", cursor:done?"default":"pointer", display:"flex", alignItems:"center", gap:8, transition:"all .2s", fontFamily:"'Varela Round',sans-serif", color:"#fff", fontSize:member.age<=5?16:14, textAlign:"right", animation:done&&i===question.correct_index?"correctPulse .5s ease":done&&i===sel&&i!==question.correct_index?"shake .3s ease":"" }}
                 onMouseEnter={e=>{ if(!done){e.currentTarget.style.transform="scale(1.03)";e.currentTarget.style.background="rgba(255,255,255,.12)"}}}
                 onMouseLeave={e=>{ if(!done){e.currentTarget.style.transform="scale(1)";e.currentTarget.style.background=bg}}}>
-                <span style={{ background:`${g.color}22`, color:g.color, borderRadius:"50%", width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(15px, 11vw, 21px)", fontWeight:"bold", flexShrink:0 }}>{labels[i]}</span>
+                <span style={{ background:(g.color + "22"), color:g.color, borderRadius:"50%", width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(15px, 11vw, 21px)", fontWeight:"bold", flexShrink:0 }}>{labels[i]}</span>
                 <span style={{ flex:1 }}>{ans}</span>
                 {done&&i===question.correct_index&&<span>✅</span>}
                 {done&&i===sel&&i!==question.correct_index&&<span>❌</span>}
@@ -1029,7 +1145,7 @@ function QuizScreen({ quizData, members, onFinish }) {
       </div>
 
       {done && ti+1>=turns.length && (
-        <button onClick={next} style={{ ...C.btnP, background:`linear-gradient(135deg,${g.color},${g.color}99)`, color:"#000", animation:"slideIn .3s ease" }}
+        <button onClick={next} style={{ ...C.btnP, background:("linear-gradient(135deg," + g.color + "," + g.color + "99)"), color:"#000", animation:"slideIn .3s ease" }}
           onMouseEnter={e=>e.currentTarget.style.transform="scale(1.02)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
           🏆 לתוצאות!
         </button>
@@ -1041,8 +1157,8 @@ function QuizScreen({ quizData, members, onFinish }) {
 // ─── SCREEN: SHARE ────────────────────────────────────────────────────────────
 function ShareScreen({ code, topic, familyName, pct, onContinue }) {
   const [copied, setCopied] = useState(false);
-  const url = `${window.location.origin}${window.location.pathname}?code=${code}`;
-  const waText = encodeURIComponent(`🎮 חידון המשפחה — ${topic}\nמשפחת ${familyName} השיגה ${pct}%!\n\nהאם תוכלו לנצח? 🏆\n\nקוד: *${code}*\n${url}`);
+  const url = window.location.origin + window.location.pathname + "?code=" + code;
+  const waText = encodeURIComponent("🎮 חידון המשפחה — " + topic + "\nמשפחת " + familyName + " השיגה " + pct + "%!\n\nהאם תוכלו לנצח? 🏆\n\nקוד: *" + code + "*\n" + url);
 
   const copy = () => { navigator.clipboard?.writeText(url).catch(()=>{}); setCopied(true); setTimeout(()=>setCopied(false),2000); };
 
@@ -1057,7 +1173,7 @@ function ShareScreen({ code, topic, familyName, pct, onContinue }) {
         <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(56px, 28vw, 67px)", letterSpacing:10, lineHeight:1 }}>{code}</div>
       </div>
 
-      <a href={`https://wa.me/?text=${waText}`} target="_blank" rel="noreferrer"
+      <a href={"https://wa.me/?text=" + waText} target="_blank" rel="noreferrer"
         style={{ display:"block", padding:"15px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", textDecoration:"none", marginBottom:8, boxShadow:"0 4px 20px #16a34a55" }}>
         📱 שליחה בוואטסאפ
       </a>
@@ -1125,9 +1241,9 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
         }).map((m,i) => {
           const g=ag(m.age); const s=scores[m.name]; const p=s.total?Math.round(s.correct/s.total*100):0;
           return (
-            <div key={m.name} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8, padding:"12px", background:"rgba(255,255,255,.04)", borderRadius:14, border:`1px solid ${g.color}33` }}>
+            <div key={m.name} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8, padding:"12px", background:"rgba(255,255,255,.04)", borderRadius:14, border:("1px solid " + g.color + "33") }}>
               <span style={{ fontSize:"clamp(20px, 14vw, 26px)" }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"🎖️"}</span>
-              <div style={{ width:36, height:36, borderRadius:"50%", background:`${g.color}22`, border:`2px solid ${g.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)" }}>{g.emoji}</div>
+              <div style={{ width:36, height:36, borderRadius:"50%", background:(g.color + "22"), border:("2px solid " + g.color), display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)" }}>{g.emoji}</div>
               <div style={{ flex:1 }}>
                 <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 22px)" }}>{m.name}</div>
                 <div style={{ color:"#64748b", fontSize:"clamp(13px, 10vw, 20px)", fontFamily:"'Varela Round',sans-serif" }}>{s.correct}/{s.total} נכון · {p}%{g.bonus?" · ⚡ בונוס זמן":""}</div>
@@ -1151,12 +1267,12 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
           {(() => {
             const rows = tab==="challenge" ? board : tab==="mpts" ? monthly.pts : monthly.avg;
             const getVal = (r) => tab==="challenge" ? r.family_pct+"%" : tab==="mpts" ? r.monthly_points+"נק'" : r.monthly_avg+"%";
-            const getSub = (r) => tab==="mavg" ? `(${r.monthly_games||0} משחקים)` : "";
+            const getSub = (r) => tab==="mavg" ? ("(" + r.monthly_games||0 + " משחקים)") : "";
             return (rows||[]).slice(0,8).map((r,i) => {
               const isMe = r.family_name===familyName;
               return (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", marginBottom:5, background:isMe?"rgba(167,139,250,.15)":"rgba(255,255,255,.03)", borderRadius:12, border:`1px solid ${isMe?"#a78bfa44":"transparent"}` }}>
-                  <span style={{ fontSize:"clamp(19px, 14vw, 25px)", minWidth:22 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", marginBottom:5, background:isMe?"rgba(167,139,250,.15)":"rgba(255,255,255,.03)", borderRadius:12, border:("1px solid " + (isMe?"#a78bfa44":"transparent")) }}>
+                  <span style={{ fontSize:"clamp(19px, 14vw, 25px)", minWidth:22 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":(i+1 + ".")}</span>
                   <div style={{ flex:1 }}>
                     <div style={{ color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)" }}>{r.family_name}{isMe?" ← אתם":""}</div>
                     {getSub(r)&&<div style={{ color:"#475569", fontSize:"clamp(12px, 9vw, 18px)" }}>{getSub(r)}</div>}
@@ -1250,19 +1366,14 @@ function AppInner() {
     const stop = startLoad();
     try {
       const room = await loadQuizByCode(c, setSbOnline);
-      if (!room) { stop(); setError(`לא נמצא חידון עם קוד ${c}`); setScreen("home"); return; }
+      if (!room) { stop(); setError("לא נמצא חידון עם קוד " + c); setScreen("home"); return; }
       const played = await hasPlayedQuiz(c, fam.name, setSbOnline);
       if (played) {
         stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setScreen("alreadyPlayed"); return;
       }
-      // צור שאלות מותאמות לגילאי המשפחה המצטרפת
-      const wiki = await fetchWiki(room.topic);
-      const seed = Math.random().toString(36).slice(2,8);
-      const data = await generateQuestions(wiki.text, wiki.lang, fam.members, seed, wiki.title);
-      const validated = await validateQuestions(data, wiki.text);
+      const validated = await buildQuiz(room.topic, fam.members);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
       setQuizData(validated); setIsChallenger(true); setScreen("quiz");
-      // נקה URL
       window.history.replaceState({}, "", window.location.pathname);
     } catch(e) { stop(); setError("שגיאה בטעינת החידון"); setScreen("home"); }
   };
@@ -1274,14 +1385,20 @@ function AppInner() {
     return () => clearInterval(iv);
   };
 
+  // ─── שיתוף לוגיקה: יצירת שאלות מויקיפדיה ───
+  const buildQuiz = async (t, mems) => {
+    const wiki = await fetchWiki(t);
+    const seed = Math.random().toString(36).slice(2,8);
+    const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
+    const validated = await validateQuestions(data, wiki.text);
+    return validated;
+  };
+
   const handlePlay = async (t) => {
     setTopic(t); setIsChallenger(false); setCreatorPct(null);
     const stop = startLoad();
     try {
-      const wiki = await fetchWiki(t);
-      const seed = Math.random().toString(36).slice(2,8);
-      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed, wiki.title);
-      const validated = await validateQuestions(data, wiki.text);
+      const validated = await buildQuiz(t, family.members);
       stop(); setQuizData(validated); setScreen("quiz");
     } catch(e) { stop(); setError(e.message||"שגיאה"); setScreen("home"); }
   };
@@ -1290,24 +1407,12 @@ function AppInner() {
     const stop = startLoad();
     try {
       const room = await loadQuizByCode(c, setSbOnline);
-      if (!room) { stop(); setError(`לא נמצא חידון עם קוד ${c}`); setScreen("home"); return; }
-
-      // check if already played this exact quiz
+      if (!room) { stop(); setError("לא נמצא חידון עם קוד " + c); setScreen("home"); return; }
       const played = await hasPlayedQuiz(c, family.name, setSbOnline);
       if (played) {
-        stop();
-        setTopic(room.topic);
-        setBlockedTopic(room.topic);
-        setCode(c);
-        setScreen("alreadyPlayed");
-        return;
+        stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setScreen("alreadyPlayed"); return;
       }
-
-      // צור שאלות מותאמות לגילאי המשפחה המצטרפת
-      const wiki = await fetchWiki(room.topic);
-      const seed = Math.random().toString(36).slice(2,8);
-      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed, wiki.title);
-      const validated = await validateQuestions(data, wiki.text);
+      const validated = await buildQuiz(room.topic, family.members);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
       setQuizData(validated); setIsChallenger(true); setScreen("quiz");
       window.history.replaceState({}, "", window.location.pathname);
@@ -1321,7 +1426,6 @@ function AppInner() {
     if (isChallenger) {
       await saveChallenge(code, family.name, pct, null);
       await upsertScore(family.name, rawScore, pct, null);
-      // בדוק אם עקפת את היוצר או מישהו אחר
       if (creatorPct !== null && rawScore > creatorPct) setBeatenBy(null);
       setScreen("results");
     } else {
@@ -1331,9 +1435,8 @@ function AppInner() {
       await saveChallenge(newCode, family.name, pct, null);
       await saveFamilyChallenge(newCode, family.name, null);
       await upsertScore(family.name, rawScore, pct, null);
-      // בדוק אם יש מישהו עם ציון גבוה יותר באתגר
-      const challenges = await getChallenges(code || "", null).catch(()=>[]);
-      const beaten = (challenges||[]).find(r => r.family_name !== family.name && r.family_pct > pct);
+      const challenges = await getChallenges(code || "", null).catch(function(){return [];});
+      const beaten = (challenges||[]).find(function(r) { return r.family_name !== family.name && r.family_pct > pct; });
       if (beaten) setBeatenBy({ name: beaten.family_name, score: beaten.family_pct });
       setScreen("share");
     }
@@ -1342,25 +1445,18 @@ function AppInner() {
   const handleSameTopic = async () => {
     const stop = startLoad();
     try {
-      const wiki = await fetchWiki(topic);
-      const seed = Math.random().toString(36).slice(2,8);
-      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed, wiki.title);
-      const validated = await validateQuestions(data, wiki.text);
+      const validated = await buildQuiz(topic, family.members);
       stop(); setQuizData(validated); setIsChallenger(false); setCreatorPct(null); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
 
   const handleRematch = async () => {
-    // אתגר חוזר — שאלות חדשות על אותו נושא, שומר קוד קיים
     const stop = startLoad();
     try {
-      const wiki = await fetchWiki(topic);
-      const seed = Math.random().toString(36).slice(2,8);
-      const data = await generateQuestions(wiki.text, wiki.lang, family.members, seed, wiki.title);
-      // שמור חידון חדש על אותו קוד
+      const validated = await buildQuiz(topic, family.members);
       const newCode = makeCode();
       setCode(newCode);
-      stop(); setQuizData(data); setIsChallenger(false); setBeatenBy(null); setScreen("quiz");
+      stop(); setQuizData(validated); setIsChallenger(false); setBeatenBy(null); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
 
@@ -1383,7 +1479,7 @@ function AppInner() {
 
   return (
     <>
-      <style>{`
+      <style>{"
         @keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
         @keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:0}}
@@ -1395,7 +1491,7 @@ function AppInner() {
         @keyframes popIn{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
         @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
         @keyframes correctPulse{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
-      `}</style>
+      "}</style>
 
       <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#05050f 0%,#0f172a 40%,#1a1540 70%,#0a0a18 100%)", padding:"clamp(16px, 3vw, 40px) clamp(16px, 4vw, 60px) 80px", display:"flex", flexDirection:"column", alignItems:"center" }}>
         {!sbOnline && (
