@@ -750,6 +750,36 @@ function TimerBar({ seconds, color, onExpire, onTick }) {
   );
 }
 
+// ─── PUSH NOTIFICATION MODAL ─────────────────────────────────────────────────
+function PushModal({ familyName, onDone }) {
+  var shouldShow = ("Notification" in window) && ("PushManager" in window) && Notification.permission === "default" && !LS.get("push_asked");
+
+  if (!shouldShow) return null;
+
+  var accept = async function() {
+    LS.set("push_asked", true);
+    var ok = await registerPush(familyName);
+    onDone(ok);
+  };
+  var dismiss = function() {
+    LS.set("push_asked", true);
+    onDone(false);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease" }}>
+      <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"1px solid rgba(167,139,250,.3)", borderRadius:24, padding:"clamp(20px,4vw,32px)", maxWidth:380, width:"100%", textAlign:"center" }}>
+        <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:12 }}>🔔</div>
+        <h2 style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 8px" }}>לא לפספס!</h2>
+        <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 19px)", margin:"0 0 6px", lineHeight:1.6 }}>מישהו עקף אותכם? תקבלו התראה מיד!</p>
+        <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>ללא ספאם, רק כשמישהו משיג ציון גבוה יותר מכם</p>
+        <button onClick={accept} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🔔 הפעילו התראות</button>
+        <button onClick={dismiss} style={{ width:"100%", padding:"10px", background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>אולי אחר כך</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── PWA INSTALL BANNER ───────────────────────────────────────────────────────
 function InstallBanner({ onDismiss }) {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -891,17 +921,6 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
   const [myChallenges, setMyChallenges] = useState([]);
   const [challengeLoading, setChallengeLoading] = useState(false);
   const [selectedChallenge, setSelectedChallenge] = useState(null);
-  const [pushStatus, setPushStatus] = useState("unknown"); // unknown|granted|denied|unsupported
-
-  useEffect(() => {
-    if (!("Notification" in window)) { setPushStatus("unsupported"); return; }
-    setPushStatus(Notification.permission);
-  }, []);
-
-  const askPush = async () => {
-    var ok = await registerPush(family.name);
-    setPushStatus(ok ? "granted" : "denied");
-  };
 
   useEffect(() => { getMonthlyBoard(onSetOnline).then(d => setMonthly(d || {pts:[],avg:[]})); }, []);
 
@@ -930,14 +949,6 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
         <button onClick={onEditFamily} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", padding:"6px 12px", cursor:"pointer" }}>✏️ עדכון</button>
         <button onClick={onLogout} style={{ background:"none", border:"none", color:"#334155", fontSize:"clamp(18px, 13vw, 25px)", cursor:"pointer", padding:"4px" }}>🔓</button>
       </div>
-
-      {pushStatus === "default" && (
-        <button onClick={askPush}
-          style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 16px", marginBottom:14, background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.25)", borderRadius:14, cursor:"pointer", transition:"all .2s" }}>
-          <span style={{ fontSize:"clamp(22px, 15vw, 28px)" }}>🔔</span>
-          <span style={{ flex:1, color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", textAlign:"right" }}>הפעילו התראות כדי לדעת כשמישהו עוקף אתכם!</span>
-        </button>
-      )}
 
       <div style={{ display:"flex", gap:0, marginBottom:14, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:4 }}>
         {[{k:"play",l:"🎮 שחק"},{k:"join",l:"⚔️ אתגר"},{k:"board",l:"🏆 לוח"}].map(({k,l}) => (
@@ -1527,6 +1538,7 @@ function AppInner() {
   const [blockedTopic, setBlockedTopic] = useState("");
   const [sbOnline, setSbOnline]         = useState(true);
   const [beatenBy, setBeatenBy]   = useState(null); // {name, score} של מי שעקף
+  const [showPushModal, setShowPushModal] = useState(false);
 
   // boot: check localStorage + URL code
   useEffect(() => {
@@ -1638,6 +1650,10 @@ function AppInner() {
       notifyBeatenFamilies(code, family.name, pct, topic);
       if (creatorPct !== null && rawScore > creatorPct) setBeatenBy(null);
       setScreen("results");
+      // הצג מודל התראות אחרי סיום חידון
+      if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
+        setTimeout(function() { setShowPushModal(true); }, 1500);
+      }
     } else {
       const newCode = makeCode();
       setCode(newCode);
@@ -1646,6 +1662,10 @@ function AppInner() {
       saveFamilyChallenge(newCode, family.name, null).catch(function(){});
       upsertScore(family.name, rawScore, pct, null).catch(function(){});
       setScreen("share");
+      // הצג מודל התראות גם במסך שיתוף
+      if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
+        setTimeout(function() { setShowPushModal(true); }, 2000);
+      }
     }
   };
 
@@ -1734,6 +1754,7 @@ function AppInner() {
       </div>
 
       <InstallBanner />
+      {showPushModal && family && <PushModal familyName={family.name} onDone={function() { setShowPushModal(false); }} />}
     </>
   );
 }
