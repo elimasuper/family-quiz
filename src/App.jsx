@@ -65,11 +65,12 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function savePushSubscription(familyName, subscription) {
+  var subJson = typeof subscription.toJSON === "function" ? subscription.toJSON() : subscription;
   return sbSafe(function() {
     return sbFetch("push_subscriptions", {
-      method: "POST", prefer: "return=minimal",
-      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify({ family_name: familyName, subscription: subscription.toJSON() }),
+      method: "POST",
+      prefer: "return=minimal,resolution=merge-duplicates",
+      body: JSON.stringify({ family_name: familyName, subscription: subJson }),
     });
   }, null, null);
 }
@@ -478,12 +479,14 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   var len = wikiText.length;
   var chunkSize = 700;
   var positions = [];
+  // מספר chunks לפי אורך המאמר — יותר טקסט = יותר chunks = יותר שאלות
+  var numChunksNeeded = Math.min(6, Math.max(3, Math.ceil(members.length * 1.5)));
   if (len <= chunkSize * 2) {
     positions = [0];
   } else {
-    var maxAttempts = 50;
+    var maxAttempts = 80;
     var attempts = 0;
-    while (positions.length < 3 && attempts < maxAttempts) {
+    while (positions.length < numChunksNeeded && attempts < maxAttempts) {
       attempts++;
       var pos = Math.floor(Math.random() * Math.max(1, len - chunkSize));
       if (positions.every(function(p) { return Math.abs(p - pos) > chunkSize; })) positions.push(pos);
@@ -491,9 +494,12 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   }
   positions.sort(function(a, b) { return a - b; });
   var chunks = positions.map(function(p) { return wikiText.slice(p, p + chunkSize); });
-  // כלול גם קטע מההתחלה — אבל לא תמיד אותו קטע
   var introStart = Math.floor(Math.random() * Math.min(400, Math.floor(len * 0.15)));
   var wikiSlice = wikiText.slice(introStart, introStart + 600) + "\n\n..." + chunks.join("\n\n...");
+
+  // הגבל מספר שאלות לפי אורך הטקסט
+  var maxQuestionsFromText = Math.max(4, Math.floor(wikiSlice.length / 150));
+
   var usedQ = topic ? getQHistory(topic) : [];
 
   // ─── קיבוץ לפי רמת גיל ───
@@ -523,6 +529,9 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     var groupMembers = groups[k];
     var g = ag(groupMembers[0].age);
     var totalQ = groupMembers.length * g.qCount + Math.min(4, groupMembers.length);
+    // הגבל לפי אורך הטקסט, אבל תמיד לפחות 3 לכל משתתף
+    var minQ = groupMembers.length * 3;
+    totalQ = Math.max(minQ, Math.min(totalQ, maxQuestionsFromText));
     groupResults[k] = [];
 
     // חלק לקריאות של עד MAX_Q_PER_CALL
