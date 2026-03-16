@@ -24,6 +24,59 @@ class ErrorBoundary extends Component {
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://bqboyursgerrejqvmvhq.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxYm95dXJzZ2VycmVqcXZtdmhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNTc0NDQsImV4cCI6MjA4ODYzMzQ0NH0.OPudQau6wVdUfKzLCMCxKG5F5VlYhCL_1Sfak0V1F8o";
+const VAPID_PUBLIC_KEY = "BOMwhBgbC5dAsd7FufiTLQPceLVioktpoaDhS6yfL4OvmB4becP0PbVdhLDzDavbSPurpd50m6E83esINrG_T9E";
+
+// ─── PUSH NOTIFICATIONS ──────────────────────────────────────────────────────
+async function registerPush(familyName) {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  try {
+    var reg = await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+    var existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await savePushSubscription(familyName, existing);
+      return true;
+    }
+    var sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+    await savePushSubscription(familyName, sub);
+    return true;
+  } catch(e) {
+    console.error("Push registration failed:", e);
+    return false;
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  var padding = "=".repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  var raw = atob(base64);
+  var arr = new Uint8Array(raw.length);
+  for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function savePushSubscription(familyName, subscription) {
+  return sbSafe(function() {
+    return sbFetch("push_subscriptions", {
+      method: "POST", prefer: "return=minimal",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ family_name: familyName, subscription: subscription.toJSON() }),
+    });
+  }, null, null);
+}
+
+async function notifyBeatenFamilies(code, beaterFamily, beaterPct, topic) {
+  try {
+    fetch("/api/push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code, beater_family: beaterFamily, beater_pct: beaterPct, topic: topic }),
+    }).catch(function(){});
+  } catch(e) {}
+}
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const sbFetch = async (path, opts = {}) => {
@@ -1424,6 +1477,7 @@ function AppInner() {
         return;
       }
       setFamily(saved);
+      registerPush(saved.name);
       if (urlCode) {
         setTimeout(() => handleJoinWithFamily(saved, urlCode), 100);
       } else {
@@ -1497,17 +1551,17 @@ function AppInner() {
     const pct = fp(family.members, s);
     const rawScore = calcRawScore(family.members, s);
     if (isChallenger) {
-      // שמור ברקע — לא חוסם את המשתמש
       updateChallenge(code, family.name, pct, null).then(function(updated) {
         if (!updated) saveChallenge(code, family.name, pct, null).catch(function(){});
       }).catch(function(){});
       upsertScore(family.name, rawScore, pct, null).catch(function(){});
+      // שלח Push למשפחות שנעקפו
+      notifyBeatenFamilies(code, family.name, pct, topic);
       if (creatorPct !== null && rawScore > creatorPct) setBeatenBy(null);
       setScreen("results");
     } else {
       const newCode = makeCode();
       setCode(newCode);
-      // שמור ברקע
       saveQuizRoom(newCode, topic, family.name, pct, null).catch(function(){});
       saveChallenge(newCode, family.name, pct, null).catch(function(){});
       saveFamilyChallenge(newCode, family.name, null).catch(function(){});
@@ -1545,6 +1599,7 @@ function AppInner() {
 
   const handleWelcomeDone = (f) => {
     setFamily(f);
+    registerPush(f.name);
     if (code) { setTimeout(() => handleJoinWithFamily(f, code), 100); }
     else setScreen("home");
   };
