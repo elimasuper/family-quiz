@@ -30,19 +30,25 @@ const VAPID_PUBLIC_KEY = "BOMwhBgbC5dAsd7FufiTLQPceLVioktpoaDhS6yfL4OvmB4becP0Pb
 async function registerPush(familyName) {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
   try {
+    // אם המשתמש כבר דחה — לא נטריד שוב
+    if (Notification.permission === "denied") return false;
     var reg = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
     var existing = await reg.pushManager.getSubscription();
     if (existing) {
-      await savePushSubscription(familyName, existing);
+      savePushSubscription(familyName, existing);
       return true;
     }
-    var sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
-    await savePushSubscription(familyName, sub);
-    return true;
+    // רק אם כבר יש הרשאה או שעדיין לא נשאל
+    if (Notification.permission === "granted" || Notification.permission === "default") {
+      var sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      savePushSubscription(familyName, sub);
+      return true;
+    }
+    return false;
   } catch(e) {
     console.error("Push registration failed:", e);
     return false;
@@ -237,7 +243,9 @@ function calcBadges(scores, members, isChampion=false, streak=0) {
   const timerMembers = validMembers.filter(m => ag(m.age).timer > 0);
   if (timerMembers.length) {
     const avgSecs = timerMembers.reduce((s,m) => s + (scores[m.name]?.timerSum||0) / Math.max(scores[m.name]?.timerCount||1,1), 0) / timerMembers.length;
-    if (avgSecs >= 10) badges.push({ emoji:"⚡", label:"מהיר הבזק" });
+    const maxTimer = Math.max.apply(null, timerMembers.map(function(m) { return ag(m.age).timer; }));
+    if (avgSecs >= maxTimer * 0.7) badges.push({ emoji:"⚡", label:"שיא מהירות!" });
+    else if (avgSecs >= maxTimer * 0.4) badges.push({ emoji:"⚡", label:"מהיר כברק!" });
   }
   return badges;
 }
@@ -297,24 +305,62 @@ async function searchWikiResults(query) {
 }
 
 async function fetchWiki(topic) {
-  const get = async (title) => {
-    const r = await fetch(("https://he.wikipedia.org/w/api.php?action=query&titles=" + encodeURIComponent(title) + "&prop=extracts&explaintext=true&exsectionformat=plain&format=json&origin=*&redirects=1"));
-    const d = await r.json();
-    const p = Object.values(d.query.pages)[0];
+  var get = async function(title) {
+    var r = await fetch(("https://he.wikipedia.org/w/api.php?action=query&titles=" + encodeURIComponent(title) + "&prop=extracts&explaintext=true&exsectionformat=plain&format=json&origin=*&redirects=1"));
+    var d = await r.json();
+    var p = Object.values(d.query.pages)[0];
     if (p.extract && p.extract.length >= 300) {
-      const full = p.extract;
-      const len = full.length;
-      // החזר את הטקסט המלא — generateQuestions יבחר קטעים רנדומליים בכל פעם
-      return { text: full, lang: "he", title: p.title };
+      return { text: p.extract, lang: "he", title: p.title };
     }
     return null;
   };
-  const direct = await get(topic);
-  if (direct) return direct;
-  const sr = await fetch(("https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + encodeURIComponent(topic) + "&srlimit=3&format=json&origin=*"));
-  const hits = ((await sr.json())?.query?.search) || [];
-  for (const h of hits) { const r = await get(h.title); if (r) return r; }
-  throw new Error("לא נמצא מאמר בויקיפדיה על \"" + topic + "\". נסו נושא אחר.");
+
+  // שלוף מאמר "ראו גם" — מאמרים קשורים מויקיפדיה
+  var getSeeAlso = async function(title) {
+    try {
+      var r = await fetch(("https://he.wikipedia.org/w/api.php?action=parse&page=" + encodeURIComponent(title) + "&prop=sections&format=json&origin=*"));
+      var d = await r.json();
+      var sections = (d.parse && d.parse.sections) || [];
+      var seeAlsoIdx = null;
+      for (var i = 0; i < sections.length; i++) {
+        var name = sections[i].line || "";
+        if (name === "ראו גם" || name === "קישורים פנימיים" || name === "נושאים קשורים") {
+          seeAlsoIdx = sections[i].index;
+          break;
+        }
+      }
+      if (!seeAlsoIdx) return [];
+      // שלוף את הסקשיין
+      var r2 = await fetch(("https://he.wikipedia.org/w/api.php?action=parse&page=" + encodeURIComponent(title) + "&prop=links&section=" + seeAlsoIdx + "&format=json&origin=*"));
+      var d2 = await r2.json();
+      var links = (d2.parse && d2.parse.links) || [];
+      // סנן רק קישורים למאמרים (ns=0)
+      return links.filter(function(l) { return l.ns === 0 && l.exists !== undefined; }).map(function(l) { return l["*"]; }).slice(0, 4);
+    } catch(e) { return []; }
+  };
+
+  var direct = await get(topic);
+  if (!direct) {
+    var sr = await fetch(("https://he.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + encodeURIComponent(topic) + "&srlimit=3&format=json&origin=*"));
+    var hits = ((await sr.json())?.query?.search) || [];
+    for (var h of hits) { var r = await get(h.title); if (r) { direct = r; break; } }
+  }
+  if (!direct) throw new Error("לא נמצא מאמר בויקיפדיה על \"" + topic + "\". נסו נושא אחר.");
+
+  // אם המאמר קצר — העשר עם מאמרי "ראו גם"
+  var MIN_RICH = 4000;
+  if (direct.text.length < MIN_RICH) {
+    var related = await getSeeAlso(direct.title);
+    for (var i = 0; i < related.length && direct.text.length < MIN_RICH; i++) {
+      var extra = await get(related[i]);
+      if (extra) {
+        direct.text = direct.text + "\n\n--- " + extra.title + " ---\n" + extra.text.slice(0, 2000);
+      }
+    }
+  }
+
+  direct.shortArticle = direct.text.length < 2500;
+  return direct;
 }
 
 // ─── AI ───────────────────────────────────────────────────────────────────────
@@ -473,7 +519,7 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   var groupPromises = Object.keys(groups).map(function(k) {
     var groupMembers = groups[k];
     var g = ag(groupMembers[0].age);
-    var totalQ = groupMembers.length * g.qCount;
+    var totalQ = groupMembers.length * g.qCount + Math.max(3, Math.floor(groupMembers.length * g.qCount * 0.3));
     return generateQuestionsForGroup(wikiSlice, groupMembers, totalQ, usedQ).then(function(questions) {
       groupResults[k] = questions;
     });
@@ -481,13 +527,24 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   await Promise.all(groupPromises);
 
   // חלק את השאלות שווה בשווה בין חברי כל קבוצה
-  var results = members.map(function(m) {
-    var k = levelKey(m);
-    var g = ag(m.age);
-    var pool = groupResults[k] || [];
-    var myQuestions = pool.splice(0, g.qCount); // קח את ה-qCount הבאות מהמאגר
-    return { name: m.name, questions: myQuestions };
-  });
+  var results = [];
+  var groupPools = {};
+  // העתק את המאגרים כדי לא לשנות את המקור
+  Object.keys(groupResults).forEach(function(k) { groupPools[k] = [].concat(groupResults[k] || []); });
+
+  // שלב 1: חלק שווה בשווה — round-robin
+  var memberQueues = members.map(function(m) { return { name: m.name, level: levelKey(m), questions: [], needed: ag(m.age).qCount }; });
+  var changed = true;
+  while (changed) {
+    changed = false;
+    memberQueues.forEach(function(mq) {
+      if (mq.questions.length < mq.needed && groupPools[mq.level] && groupPools[mq.level].length > 0) {
+        mq.questions.push(groupPools[mq.level].shift());
+        changed = true;
+      }
+    });
+  }
+  results = memberQueues.map(function(mq) { return { name: mq.name, questions: mq.questions }; });
 
   // שמור שאלות ב-history למניעת חזרות
   if (topic) {
@@ -834,6 +891,17 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
   const [myChallenges, setMyChallenges] = useState([]);
   const [challengeLoading, setChallengeLoading] = useState(false);
   const [selectedChallenge, setSelectedChallenge] = useState(null);
+  const [pushStatus, setPushStatus] = useState("unknown"); // unknown|granted|denied|unsupported
+
+  useEffect(() => {
+    if (!("Notification" in window)) { setPushStatus("unsupported"); return; }
+    setPushStatus(Notification.permission);
+  }, []);
+
+  const askPush = async () => {
+    var ok = await registerPush(family.name);
+    setPushStatus(ok ? "granted" : "denied");
+  };
 
   useEffect(() => { getMonthlyBoard(onSetOnline).then(d => setMonthly(d || {pts:[],avg:[]})); }, []);
 
@@ -862,6 +930,14 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
         <button onClick={onEditFamily} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", padding:"6px 12px", cursor:"pointer" }}>✏️ עדכון</button>
         <button onClick={onLogout} style={{ background:"none", border:"none", color:"#334155", fontSize:"clamp(18px, 13vw, 25px)", cursor:"pointer", padding:"4px" }}>🔓</button>
       </div>
+
+      {pushStatus === "default" && (
+        <button onClick={askPush}
+          style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 16px", marginBottom:14, background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.25)", borderRadius:14, cursor:"pointer", transition:"all .2s" }}>
+          <span style={{ fontSize:"clamp(22px, 15vw, 28px)" }}>🔔</span>
+          <span style={{ flex:1, color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", textAlign:"right" }}>הפעילו התראות כדי לדעת כשמישהו עוקף אתכם!</span>
+        </button>
+      )}
 
       <div style={{ display:"flex", gap:0, marginBottom:14, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:4 }}>
         {[{k:"play",l:"🎮 שחק"},{k:"join",l:"⚔️ אתגר"},{k:"board",l:"🏆 לוח"}].map(({k,l}) => (
@@ -1515,6 +1591,9 @@ function AppInner() {
   // ─── שיתוף לוגיקה: יצירת שאלות מויקיפדיה ───
   const buildQuiz = async (t, mems) => {
     const wiki = await fetchWiki(t);
+    if (wiki.shortArticle) {
+      setError("📄 המאמר קצר — ייתכנו חזרות. נסו נושא עם מאמר ארוך יותר!");
+    }
     const seed = Math.random().toString(36).slice(2,8);
     const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
     const validated = await validateQuestions(data, wiki.text);
