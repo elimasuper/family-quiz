@@ -514,17 +514,29 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     memberOrder.push({ name: m.name, level: k });
   });
 
-  // שלח קריאה אחת לכל קבוצת גיל
+  // שלח קריאות לכל קבוצת גיל — מקסימום 8 שאלות לקריאה
+  var MAX_Q_PER_CALL = 8;
   var groupResults = {};
-  var groupPromises = Object.keys(groups).map(function(k) {
+  var allPromises = [];
+
+  Object.keys(groups).forEach(function(k) {
     var groupMembers = groups[k];
     var g = ag(groupMembers[0].age);
-    var totalQ = groupMembers.length * g.qCount + Math.max(3, Math.floor(groupMembers.length * g.qCount * 0.3));
-    return generateQuestionsForGroup(wikiSlice, groupMembers, totalQ, usedQ).then(function(questions) {
-      groupResults[k] = questions;
-    });
+    var totalQ = groupMembers.length * g.qCount + Math.min(4, groupMembers.length);
+    groupResults[k] = [];
+
+    // חלק לקריאות של עד MAX_Q_PER_CALL
+    var remaining = totalQ;
+    while (remaining > 0) {
+      var batchSize = Math.min(remaining, MAX_Q_PER_CALL);
+      remaining -= batchSize;
+      var p = generateQuestionsForGroup(wikiSlice, groupMembers, batchSize, usedQ).then(function(kk) {
+        return function(questions) { groupResults[kk] = groupResults[kk].concat(questions); };
+      }(k));
+      allPromises.push(p);
+    }
   });
-  await Promise.all(groupPromises);
+  await Promise.all(allPromises);
 
   // חלק את השאלות שווה בשווה בין חברי כל קבוצה
   var results = [];
