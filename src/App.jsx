@@ -619,12 +619,12 @@ async function validateQuestions(quizData, wikiText) {
       var shared = 0;
       wordsA.forEach(function(w) { if (wordsB.indexOf(w) !== -1) shared++; });
       var overlap = shared / Math.max(1, Math.min(wordsA.length, wordsB.length));
-      if (overlap >= 0.5) { dupeIndices.add(j); continue; }
+      if (overlap >= 0.7) { dupeIndices.add(j); continue; }
 
       // בדיקה 2: אם יש ישות מפתח משותפת (שם עצם ספציפי ב-4+ תווים) — כנראה אותו נושא
       var sharedEntities = 0;
       entitiesA.forEach(function(e) { if (entitiesB.indexOf(e) !== -1) sharedEntities++; });
-      if (sharedEntities >= 1 && overlap >= 0.25) { dupeIndices.add(j); continue; }
+      if (sharedEntities >= 3 && overlap >= 0.5) { dupeIndices.add(j); continue; }
 
       // בדיקה 3: תשובה נכונה זהה
       if (q.correct_answer === allQuestions[j].correct_answer) { dupeIndices.add(j); continue; }
