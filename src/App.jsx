@@ -521,7 +521,7 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   });
 
   // שלח קריאות לכל קבוצת גיל — מקסימום 8 שאלות לקריאה
-  var MAX_Q_PER_CALL = 8;
+  var MAX_Q_PER_CALL = 10;
   var groupResults = {};
   var allPromises = [];
 
@@ -529,8 +529,8 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     var groupMembers = groups[k];
     var g = ag(groupMembers[0].age);
     var needed = groupMembers.length * g.qCount;
-    // בקש 50% יותר שאלות כ-buffer לאחר סינון כפילויות/validation
-    var totalQ = Math.ceil(needed * 1.5) + Math.min(4, groupMembers.length);
+    // בקש פי 2 שאלות כ-buffer — הסינון מוחק חלק
+    var totalQ = Math.ceil(needed * 2) + Math.min(4, groupMembers.length);
     var minQ = groupMembers.length * 3;
     totalQ = Math.max(minQ, Math.min(totalQ, maxQuestionsFromText));
     groupResults[k] = [];
@@ -585,69 +585,21 @@ async function validateQuestions(quizData, wikiText) {
   });
   if (!allQuestions.length) return quizData;
 
-  // בדיקת כפילויות בצד הלקוח — סנן שאלות דומות מדי
-  var dupeIndices = new Set();
-  var stopWords = ["מה","מי","איזה","איזו","כמה","מתי","איפה","האם","של","את","על","הוא","היא","זה","זו","הם","הן","או","עם","לא","כן","גם","רק","אם","אבל","כי","כל","היה","היו","היתה","שהוא","שהיא","שהם","אחד","אחת","יותר","הכי","לפי","בין","תוך","עד","נקרא","נקראת","נחשב","נחשבת","היתה","היו","לפני","אחרי","בתוך","מתוך","כאשר","שבו","שבה","אילו","הייתה","היהב","במה","למה","מדוע","כיצד","באיזה","באיזו"];
-  var extractWords = function(text) {
-    return text.replace(/[?.!,،؟"'\u0027]/g, "").split(/\s+/).filter(function(w) {
-      return w.length > 1 && stopWords.indexOf(w) === -1;
-    });
+  // סנן רק שאלות זהות לחלוטין (אותו טקסט מילה במילה)
+  var seenQ = new Set();
+  quizData = {
+    members: quizData.members.map(function(m) {
+      return {
+        name: m.name,
+        questions: m.questions.filter(function(q) {
+          var key = q.question.trim();
+          if (seenQ.has(key)) return false;
+          seenQ.add(key);
+          return true;
+        })
+      };
+    })
   };
-  // מצא מילות מפתח — מילים ארוכות (4+ תווים) שככל הנראה שמות עצם ספציפיים
-  var extractKeyEntities = function(text) {
-    return text.replace(/[?.!,،؟"'\u0027]/g, "").split(/\s+/).filter(function(w) {
-      return w.length >= 4 && stopWords.indexOf(w) === -1;
-    });
-  };
-  var questionsWords = allQuestions.map(function(q) { return extractWords(q.question); });
-  // חלץ ישויות מפתח מהשאלה + כל התשובות + התשובה הנכונה — כך "פייסטוס" ייתפס בין אם הוא בשאלה או בתשובה
-  var questionsEntities = allQuestions.map(function(q) {
-    var allText = q.question + " " + q.correct_answer + " " + q.answers.join(" ");
-    return extractKeyEntities(allText);
-  });
-
-  allQuestions.forEach(function(q, i) {
-    if (dupeIndices.has(i)) return;
-    var wordsA = questionsWords[i];
-    var entitiesA = questionsEntities[i];
-    for (var j = i + 1; j < allQuestions.length; j++) {
-      if (dupeIndices.has(j)) continue;
-      var wordsB = questionsWords[j];
-      var entitiesB = questionsEntities[j];
-
-      // בדיקה 1: overlap כללי של מילים
-      var shared = 0;
-      wordsA.forEach(function(w) { if (wordsB.indexOf(w) !== -1) shared++; });
-      var overlap = shared / Math.max(1, Math.min(wordsA.length, wordsB.length));
-      if (overlap >= 0.7) { dupeIndices.add(j); continue; }
-
-      // בדיקה 2: אם יש ישות מפתח משותפת (שם עצם ספציפי ב-4+ תווים) — כנראה אותו נושא
-      var sharedEntities = 0;
-      entitiesA.forEach(function(e) { if (entitiesB.indexOf(e) !== -1) sharedEntities++; });
-      if (sharedEntities >= 3 && overlap >= 0.5) { dupeIndices.add(j); continue; }
-
-      // בדיקה 3: תשובה נכונה זהה
-      if (q.correct_answer === allQuestions[j].correct_answer) { dupeIndices.add(j); continue; }
-    }
-  });
-
-  // סנן כפילויות
-  console.log("לפני סינון:", allQuestions.length, "שאלות, כפילויות:", dupeIndices.size);
-  if (dupeIndices.size > 0) {
-    var globalIdx0 = 0;
-    quizData = {
-      members: quizData.members.map(function(m) {
-        return {
-          name: m.name,
-          questions: m.questions.filter(function() { return !dupeIndices.has(globalIdx0++); })
-        };
-      })
-    };
-    // עדכן allQuestions
-    allQuestions = allQuestions.filter(function(q, i) { return !dupeIndices.has(i); });
-  }
-  console.log("אחרי סינון:", allQuestions.length, "שאלות");
-  quizData.members.forEach(function(m) { console.log(m.name + ":", m.questions.length, "שאלות"); });
 
   // AI validation הוסר — סינון כפילויות בצד לקוח מספיק
   return quizData;
@@ -1606,9 +1558,7 @@ function AppInner() {
     }
     const seed = Math.random().toString(36).slice(2,8);
     const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
-    console.log("generateQuestions תוצאה:", data.members.map(function(m){return m.name+":"+m.questions.length;}));
     const validated = await validateQuestions(data, wiki.text);
-    console.log("validateQuestions תוצאה:", validated.members.map(function(m){return m.name+":"+m.questions.length;}));
     return validated;
   };
 
