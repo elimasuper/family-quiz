@@ -67,9 +67,9 @@ function urlBase64ToUint8Array(base64String) {
 async function savePushSubscription(familyName, subscription) {
   var subJson = typeof subscription.toJSON === "function" ? subscription.toJSON() : subscription;
   return sbSafe(function() {
-    return sbFetch("push_subscriptions?on_conflict=family_name", {
+    return sbFetch("push_subscriptions", {
       method: "POST",
-      prefer: "return=minimal,resolution=merge-duplicates",
+      prefer: "return=minimal",
       body: JSON.stringify({ family_name: familyName, subscription: subJson }),
     });
   }, null, null);
