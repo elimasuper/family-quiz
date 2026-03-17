@@ -632,6 +632,7 @@ async function validateQuestions(quizData, wikiText) {
   });
 
   // סנן כפילויות
+  console.log("לפני סינון:", allQuestions.length, "שאלות, כפילויות:", dupeIndices.size);
   if (dupeIndices.size > 0) {
     var globalIdx0 = 0;
     quizData = {
@@ -645,38 +646,13 @@ async function validateQuestions(quizData, wikiText) {
     // עדכן allQuestions
     allQuestions = allQuestions.filter(function(q, i) { return !dupeIndices.has(i); });
   }
+  console.log("אחרי סינון:", allQuestions.length, "שאלות");
+  quizData.members.forEach(function(m) { console.log(m.name + ":", m.questions.length, "שאלות"); });
 
-  // validation pass ב-AI — בדוק שהתשובות מבוססות על הטקסט
-  var list = allQuestions.map(function(q, i) { return (i+1) + ". " + q.question + " → " + q.correct_answer; }).join("\n");
-  var prompt = "טקסט מקור (קטע):\n" + wikiText.slice(0, 1800)
-    + "\n\nשאלות ותשובות:\n" + list
-    + "\n\nבדוק: האם התשובה הנכונה של כל שאלה מבוססת על הטקסט? האם יש שאלות שחוזרות על אותו נושא?"
-    + "\nהחזר JSON: {\"invalid\":[]} — מספרי שאלות שגויות או כפולות. אם הכל תקין: {\"invalid\":[]}";
-
-  try {
-    var res = await fetch("/api/claude", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 300, messages: [{ role: "user", content: prompt }] }),
-    });
-    var data = await res.json();
-    var raw = (data.content && data.content[0] && data.content[0].text || "").trim();
-    var match = raw.match(/\{[\s\S]*\}/);
-    if (!match) return quizData;
-    var result = JSON.parse(match[0]);
-    var invalidSet = new Set((result.invalid || []).map(function(n) { return n - 1; }));
-    if (!invalidSet.size) return quizData;
-
-    var globalIdx = 0;
-    return {
-      members: quizData.members.map(function(m) {
-        return {
-          name: m.name,
-          questions: m.questions.filter(function() { return !invalidSet.has(globalIdx++); })
-        };
-      })
-    };
-  } catch(e) {
+  // AI validation הוסר — סינון כפילויות בצד לקוח מספיק
+  return quizData;
+  // eslint-disable-next-line no-unreachable
+  try { return quizData; } catch(e) {
     return quizData;
   }
 }
