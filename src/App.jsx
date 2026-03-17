@@ -1606,7 +1606,9 @@ function AppInner() {
     }
     const seed = Math.random().toString(36).slice(2,8);
     const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
+    console.log("generateQuestions תוצאה:", data.members.map(function(m){return m.name+":"+m.questions.length;}));
     const validated = await validateQuestions(data, wiki.text);
+    console.log("validateQuestions תוצאה:", validated.members.map(function(m){return m.name+":"+m.questions.length;}));
     return validated;
   };
 
