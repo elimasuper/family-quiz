@@ -528,8 +528,9 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   Object.keys(groups).forEach(function(k) {
     var groupMembers = groups[k];
     var g = ag(groupMembers[0].age);
-    var totalQ = groupMembers.length * g.qCount + Math.min(4, groupMembers.length);
-    // הגבל לפי אורך הטקסט, אבל תמיד לפחות 3 לכל משתתף
+    var needed = groupMembers.length * g.qCount;
+    // בקש 50% יותר שאלות כ-buffer לאחר סינון כפילויות/validation
+    var totalQ = Math.ceil(needed * 1.5) + Math.min(4, groupMembers.length);
     var minQ = groupMembers.length * 3;
     totalQ = Math.max(minQ, Math.min(totalQ, maxQuestionsFromText));
     groupResults[k] = [];
