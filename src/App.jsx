@@ -67,7 +67,7 @@ function urlBase64ToUint8Array(base64String) {
 async function savePushSubscription(familyName, subscription) {
   var subJson = typeof subscription.toJSON === "function" ? subscription.toJSON() : subscription;
   return sbSafe(function() {
-    return sbFetch("push_subscriptions", {
+    return sbFetch("push_subscriptions?on_conflict=family_name", {
       method: "POST",
       prefer: "return=minimal,resolution=merge-duplicates",
       body: JSON.stringify({ family_name: familyName, subscription: subJson }),
@@ -154,10 +154,13 @@ async function updateFamilyMembers(name, pin, members, setOnline) {
 }
 
 async function saveQuizRoom(code, topic, familyName, familyPct, setOnline) {
-  return sbSafe(() => sbFetch("quiz_rooms", {
+  console.log("saveQuizRoom:", code, topic, familyName, familyPct);
+  var result = await sbSafe(() => sbFetch("quiz_rooms", {
     method: "POST", prefer: "return=minimal",
     body: JSON.stringify({ code, topic, creator_family: familyName, creator_pct: familyPct, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }),
   }), null, setOnline);
+  console.log("saveQuizRoom result:", result);
+  return result;
 }
 
 async function loadQuizByCode(code, setOnline) {
@@ -810,7 +813,7 @@ function WelcomeScreen({ onDone }) {
       <div style={{ textAlign:"center", marginBottom:24 }}>
         <div style={{ fontSize:"clamp(64px, 30vw, 77px)", animation:"bounce 2s ease infinite" }}>🦊</div>
         <h1 style={{ fontFamily:"'Fredoka One',cursive", color:"#fff", fontSize:"clamp(32px, 19vw, 40px)", margin:"8px 0 4px" }}>חידון המשפחה</h1>
-        <p style={{ color:"#475569", fontSize:"clamp(17px, 12vw, 24px)", fontFamily:"'Varela Round',sans-serif", margin:0 }}>מבוסס ויקיפדיה · חידון יומי · תחרות משפחות 🏆</p>
+        <p style={{ color:"#475569", fontSize:"clamp(17px, 12vw, 24px)", fontFamily:"'Varela Round',sans-serif", margin:0 }}>מבוסס ויקיפדיה · חידון שבועי · תחרות משפחות 🏆</p>
       </div>
 
       <div style={{ display:"flex", gap:0, marginBottom:16, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:4 }}>
