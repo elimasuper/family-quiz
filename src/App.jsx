@@ -1595,38 +1595,40 @@ function AppInner() {
       window.history.replaceState({}, "", window.location.pathname);
     } catch(e) { stop(); setError("שגיאה בטעינת החידון"); setScreen("home"); }
   };
-
-  const handleFinish = async (s) => {
-    setScores(s);
-    const pct = fp(family.members, s);
-    const rawScore = calcRawScore(family.members, s);
-    if (isChallenger) {
-      updateChallenge(code, family.name, pct, null).then(function(updated) {
-        if (!updated) saveChallenge(code, family.name, pct, null).catch(function(){});
-      }).catch(function(){});
-      upsertScore(family.name, rawScore, pct, null).catch(function(){});
-      // שלח Push למשפחות שנעקפו
-      notifyBeatenFamilies(code, family.name, pct, topic);
-      if (creatorPct !== null && rawScore > creatorPct) setBeatenBy(null);
-      setScreen("results");
-      // הצג מודל התראות אחרי סיום חידון
-      if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
-        setTimeout(function() { setShowPushModal(true); }, 1500);
-      }
-    } else {
-      const newCode = makeCode();
-      setCode(newCode);
-      saveQuizRoom(newCode, topic, family.name, pct, null).catch(function(){});
-      saveChallenge(newCode, family.name, pct, null).catch(function(){});
-      saveFamilyChallenge(newCode, family.name, null).catch(function(){});
-      upsertScore(family.name, rawScore, pct, null).catch(function(){});
-      setScreen("share");
-      // הצג מודל התראות גם במסך שיתוף
-      if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
-        setTimeout(function() { setShowPushModal(true); }, 2000);
-      }
+const handleFinish = async (s) => {
+  setScores(s);
+  const pct = fp(family.members, s);
+  const rawScore = calcRawScore(family.members, s);
+  if (isChallenger) {
+    updateChallenge(code, family.name, pct, null).then(function(updated) {
+      if (!updated) saveChallenge(code, family.name, pct, null).catch(function(){});
+    }).catch(function(){});
+    upsertScore(family.name, rawScore, pct, null).catch(function(){});
+    // שלח Push למשפחות שנעקפו
+    notifyBeatenFamilies(code, family.name, pct, topic);
+    if (creatorPct !== null && rawScore > creatorPct) setBeatenBy(null);
+    setScreen("results");
+    // הצג מודל התראות אחרי סיום חידון
+    if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
+      setTimeout(function() { setShowPushModal(true); }, 1500);
     }
-  };
+  } else {
+    const newCode = makeCode();
+    setCode(newCode);
+
+    await saveQuizRoom(newCode, topic, family.name, pct, null);
+    await saveChallenge(newCode, family.name, pct, null);
+    await saveFamilyChallenge(newCode, family.name, null);
+
+    upsertScore(family.name, rawScore, pct, null).catch(function(){});
+    setScreen("share");
+
+    // הצג מודל התראות גם במסך שיתוף
+    if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
+      setTimeout(function() { setShowPushModal(true); }, 2000);
+    }
+  }
+};
 
   const handleSameTopic = async () => {
     const stop = startLoad();
