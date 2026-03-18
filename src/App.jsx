@@ -438,10 +438,14 @@ function getAgeRule(age) {
 }
 
 // ─── BATCH QUESTION GENERATION ───────────────────────────────────────────────
-async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions, usedQuestions) {
+async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions, usedQuestions, batchNum) {
   var ageRule = getAgeRule(groupMembers[0].age);
   var seed = Math.random().toString(36).slice(2, 8);
-  var usedBlock = "";
+   var usedBlock = "";
+  var batchBlock = "";
+  if ((batchNum || 1) > 1) {
+    batchBlock = "\n12. זו קריאה מספר " + batchNum + " עבור אותה קבוצת גיל. חובה לייצר שאלות שונות בבירור מהקריאות האחרות — נושאים אחרים, עובדות אחרות, זווית אחרת.";
+  }
   if (usedQuestions && usedQuestions.length) {
     var forbidden = [];
     usedQuestions.forEach(function(q) {
@@ -457,15 +461,17 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
     + "\nכמות שאלות: " + totalQuestions
     + "\n\nחוקים:"
     + "\n1. שאלות מהטקסט בלבד — אסור להמציא עובדות."
-    + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים. לפני שאתה כותב שאלה, ודא שלא דומה לאף שאלה קודמת — לא אותו נושא, עובדה או מושג."
+      + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים. לפני שאתה כותב שאלה, ודא שלא דומה לאף שאלה קודמת — לא אותו נושא, עובדה או מושג."
+    + "\n2b. אם כבר נוצרו שאלות בקריאות אחרות לאותה קבוצת גיל, חובה להתרחק מהן: לא אותו פרט, לא אותו מושג, לא אותה עובדה בניסוח אחר."
     + "\n3. פזר שאלות על כל חלקי הטקסט — התחלה, אמצע וסוף."
     + "\n4. אסור שהתשובה הנכונה תופיע בגוף השאלה."
     + "\n5. עברית טבעית ותקנית — כמו שמדברים, לא כמו ספר לימוד."
     + "\n6. 4 תשובות לכל שאלה, כך: תשובה נכונה אחת, 2 מסיחים סבירים שנשמעים אפשריים אבל שגויים, ומסיח אחד הומוריסטי/אבסורדי שברור שהוא לא נכון אבל מצחיק (למשל: אם השאלה על דינוזאורים, מסיח כמו 'פיצה')."
     + "\n7. אסור שהמסיחים יהיו דומים זה לזה — כל תשובה חייבת להיות שונה בבירור."
-    + "\n8. emoji אחד רלוונטי לכל שאלה."
+    + "\n8. emoji אחד כללי ורלוונטי לנושא השאלה, אבל לא כזה שחושף או מרמז על התשובה הנכונה."
     + "\n9. אל תוסיף שדה explanation."
     + "\n10. seed: " + seed
+    + batchBlock
     + "\n11. JSON בלבד:\n" + example;
 
   var parsed = await callHaiku(prompt);
@@ -543,7 +549,7 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     while (remaining > 0) {
       var batchSize = Math.min(remaining, MAX_Q_PER_CALL);
       remaining -= batchSize;
-      var p = generateQuestionsForGroup(wikiSlice, groupMembers, batchSize, usedQ).then(function(kk) {
+      var p = generateQuestionsForGroup(wikiSlice, groupMembers, batchSize, usedQ, (groupResults[k].length / MAX_Q_PER_CALL) + 1).then(function(kk) {
         return function(questions) { groupResults[kk] = groupResults[kk].concat(questions); };
       }(k));
       allPromises.push(p);
@@ -1093,7 +1099,7 @@ function TopicPicker({ onStart }) {
       {!searchDone && (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginTop:4, marginBottom:10 }}>
           {quick.map(({e,t}) => (
-            <button key={t} onClick={() => { pickQuick(t); onStart(t); }} style={{ background:topic===t?"rgba(167,139,250,.25)":"rgba(255,255,255,.05)", border:("1px solid " + topic===t?"#a78bfa":"rgba(255,255,255,.1)"), borderRadius:12, padding:"9px 4px", cursor:"pointer", color:"#fff", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", textAlign:"center", transition:"all .2s" }}>
+            <button key={t} onClick={() => { pickQuick(t); onStart(t); }} style={{ background:topic===t?"rgba(167,139,250,.25)":"rgba(255,255,255,.05)", border:("1px solid " + (topic===t ? "#a78bfa" : "rgba(255,255,255,.1)")), borderRadius:12, padding:"9px 4px", cursor:"pointer", color:"#fff", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", textAlign:"center", transition:"all .2s" }}>
               <div style={{ fontSize:"clamp(20px, 14vw, 26px)", marginBottom:2 }}>{e}</div>{t}
             </button>
           ))}
@@ -1433,7 +1439,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
           {(() => {
             const rows = tab==="challenge" ? board : tab==="mpts" ? monthly.pts : monthly.avg;
             const getVal = (r) => tab==="challenge" ? r.family_pct+"%" : tab==="mpts" ? r.monthly_points+"נק'" : r.monthly_avg+"%";
-            const getSub = (r) => tab==="mavg" ? ("(" + r.monthly_games||0 + " משחקים)") : "";
+            const getSub = (r) => tab==="mavg" ? ("(" + (r.monthly_games || 0) + " משחקים)") : "";
             return (rows||[]).slice(0,8).map((r,i) => {
               const isMe = r.family_name===familyName;
               return (
