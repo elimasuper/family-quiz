@@ -154,13 +154,12 @@ async function updateFamilyMembers(name, pin, members, setOnline) {
 }
 
 async function saveQuizRoom(code, topic, familyName, familyPct, setOnline) {
-  console.log("saveQuizRoom:", code, topic, familyName, familyPct);
-  var result = await sbSafe(() => sbFetch("quiz_rooms", {
-    method: "POST", prefer: "return=minimal",
-    body: JSON.stringify({ code, topic, creator_family: familyName, creator_pct: familyPct, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }),
-  }), null, setOnline);
-  console.log("saveQuizRoom result:", result);
-  return result;
+  return sbSafe(function() {
+    return sbFetch("quiz_rooms", {
+      method: "POST", prefer: "return=representation",
+      body: JSON.stringify({ code: code, topic: topic, creator_family: familyName, creator_pct: familyPct, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }),
+    });
+  }, null, setOnline);
 }
 
 async function loadQuizByCode(code, setOnline) {
@@ -594,28 +593,49 @@ async function validateQuestions(quizData, wikiText) {
   });
   if (!allQuestions.length) return quizData;
 
-  // סנן רק שאלות זהות לחלוטין (אותו טקסט מילה במילה)
-  var seenQ = new Set();
-  quizData = {
-    members: quizData.members.map(function(m) {
-      return {
-        name: m.name,
-        questions: m.questions.filter(function(q) {
-          var key = q.question.trim();
-          if (seenQ.has(key)) return false;
-          seenQ.add(key);
-          return true;
-        })
-      };
-    })
+  // סינון כפילויות חכם — מילות מפתח + תשובה זהה + ישויות משותפות
+  var stopWords = ["מה","מי","איזה","איזו","כמה","מתי","איפה","האם","של","את","על","הוא","היא","זה","זו","הם","הן","או","עם","לא","כן","גם","רק","אם","אבל","כי","כל","היה","היו","היתה","שהוא","שהיא","שהם","אחד","אחת","יותר","הכי","לפי","בין","תוך","עד","נקרא","נקראת","נחשב","באיזה","באיזו","למה","מדוע","כיצד"];
+  var getWords = function(text) {
+    return text.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 1 && stopWords.indexOf(w) === -1; });
+  };
+  var getEntities = function(text) {
+    return text.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length >= 4 && stopWords.indexOf(w) === -1; });
   };
 
-  // AI validation הוסר — סינון כפילויות בצד לקוח מספיק
-  return quizData;
-  // eslint-disable-next-line no-unreachable
-  try { return quizData; } catch(e) {
-    return quizData;
+  var dupeIndices = new Set();
+  var qWords = allQuestions.map(function(q) { return getWords(q.question); });
+  var qEntities = allQuestions.map(function(q) { return getEntities(q.question + " " + q.correct_answer + " " + q.answers.join(" ")); });
+
+  allQuestions.forEach(function(q, i) {
+    if (dupeIndices.has(i)) return;
+    for (var j = i + 1; j < allQuestions.length; j++) {
+      if (dupeIndices.has(j)) continue;
+      // בדיקה 1: תשובה נכונה זהה
+      if (q.correct_answer === allQuestions[j].correct_answer) { dupeIndices.add(j); continue; }
+      // בדיקה 2: overlap מילים כללי
+      var shared = 0;
+      qWords[i].forEach(function(w) { if (qWords[j].indexOf(w) !== -1) shared++; });
+      var overlap = shared / Math.max(1, Math.min(qWords[i].length, qWords[j].length));
+      if (overlap >= 0.5) { dupeIndices.add(j); continue; }
+      // בדיקה 3: ישות מפתח משותפת (שם, מושג ספציפי)
+      var sharedE = 0;
+      qEntities[i].forEach(function(e) { if (qEntities[j].indexOf(e) !== -1) sharedE++; });
+      if (sharedE >= 1 && overlap >= 0.25) { dupeIndices.add(j); continue; }
+    }
+  });
+
+  if (dupeIndices.size > 0) {
+    var idx = 0;
+    quizData = {
+      members: quizData.members.map(function(m) {
+        return {
+          name: m.name,
+          questions: m.questions.filter(function() { return !dupeIndices.has(idx++); })
+        };
+      })
+    };
   }
+  return quizData;
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -1599,34 +1619,37 @@ const handleFinish = async (s) => {
   setScores(s);
   const pct = fp(family.members, s);
   const rawScore = calcRawScore(family.members, s);
-  if (isChallenger) {
-    updateChallenge(code, family.name, pct, null).then(function(updated) {
-      if (!updated) saveChallenge(code, family.name, pct, null).catch(function(){});
-    }).catch(function(){});
-    upsertScore(family.name, rawScore, pct, null).catch(function(){});
-    // שלח Push למשפחות שנעקפו
-    notifyBeatenFamilies(code, family.name, pct, topic);
-    if (creatorPct !== null && rawScore > creatorPct) setBeatenBy(null);
-    setScreen("results");
-    // הצג מודל התראות אחרי סיום חידון
-    if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
-      setTimeout(function() { setShowPushModal(true); }, 1500);
+  try {
+    if (isChallenger) {
+      // עדכן ציון קיים, או צור חדש
+      var updated = await updateChallenge(code, family.name, pct, null);
+      if (!updated) await saveChallenge(code, family.name, pct, null).catch(function(){});
+      // שמור גם ב-family_challenges כדי שהאתגר יופיע ברשימה שלי
+      saveFamilyChallenge(code, family.name, null).catch(function(){});
+      upsertScore(family.name, rawScore, pct, null).catch(function(){});
+      // שלח Push למשפחות שנעקפו
+      notifyBeatenFamilies(code, family.name, pct, topic);
+      if (creatorPct !== null && pct > creatorPct) setBeatenBy(null);
+      setScreen("results");
+    } else {
+      // יוצר אתגר חדש
+      var newCode = makeCode();
+      setCode(newCode);
+      // שמור חדר + ציון + קשר לאתגר — await כדי שה-DB ייצור לפני שעוברים מסך
+      await saveQuizRoom(newCode, topic, family.name, pct, null);
+      await saveChallenge(newCode, family.name, pct, null);
+      await saveFamilyChallenge(newCode, family.name, null);
+      upsertScore(family.name, rawScore, pct, null).catch(function(){});
+      setScreen("share");
     }
-  } else {
-    const newCode = makeCode();
-    setCode(newCode);
-
-    await saveQuizRoom(newCode, topic, family.name, pct, null);
-    await saveChallenge(newCode, family.name, pct, null);
-    await saveFamilyChallenge(newCode, family.name, null);
-
-    upsertScore(family.name, rawScore, pct, null).catch(function(){});
-    setScreen("share");
-
-    // הצג מודל התראות גם במסך שיתוף
-    if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
-      setTimeout(function() { setShowPushModal(true); }, 2000);
-    }
+  } catch(e) {
+    console.error("handleFinish error:", e);
+    // גם אם DB נכשל — תמיד הגע למסך תוצאות
+    setScreen(isChallenger ? "results" : "share");
+  }
+  // הצג מודל התראות אחרי סיום חידון
+  if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
+    setTimeout(function() { setShowPushModal(true); }, 1500);
   }
 };
 
