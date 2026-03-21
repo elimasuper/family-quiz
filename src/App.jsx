@@ -462,9 +462,9 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
     + "\n1. שאלות מהטקסט בלבד — אסור להמציא עובדות."
       + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים. לפני שאתה כותב שאלה, ודא שלא דומה לאף שאלה קודמת — לא אותו נושא, עובדה או מושג."
     + "\n2b. אם כבר נוצרו שאלות בקריאות אחרות לאותה קבוצת גיל, חובה להתרחק מהן: לא אותו פרט, לא אותו מושג, לא אותה עובדה בניסוח אחר."
-    + "\n3. פזר שאלות על כל חלקי הטקסט — התחלה, אמצע וסוף."
+    + "\n3. חשוב מאוד: פזר שאלות על כל חלקי הטקסט! שאלה 1 מההתחלה, שאלה 2 מהאמצע, שאלה 3 מהסוף, וכן הלאה. אסור שרוב השאלות יהיו מאותו קטע."
     + "\n4. אסור שהתשובה הנכונה תופיע בגוף השאלה."
-    + "\n5. עברית טבעית ותקנית — כמו שמדברים, לא כמו ספר לימוד."
+    + "\n5. עברית טבעית ותקנית — כמו שמדברים בישראל. השתמש במונחים הנכונים (למשל: 'נקודות' ולא 'טיפים', 'קבוצה' ולא 'צוות'). אם לא בטוח במונח — השתמש במילה מהטקסט עצמו."
     + "\n6. 4 תשובות לכל שאלה, כך: תשובה נכונה אחת, 2 מסיחים סבירים שנשמעים אפשריים אבל שגויים, ומסיח אחד הומוריסטי/אבסורדי שברור שהוא לא נכון אבל מצחיק (למשל: אם השאלה על דינוזאורים, מסיח כמו 'פיצה')."
     + "\n7. אסור שהמסיחים יהיו דומים זה לזה — כל תשובה חייבת להיות שונה בבירור."
     + "\n8. emoji אחד כללי ורלוונטי לנושא השאלה, אבל לא כזה שחושף או מרמז על התשובה הנכונה."
@@ -485,14 +485,14 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
 async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   // בחר קטעים רנדומליים מהטקסט המלא — שונים בכל חידון
   var len = wikiText.length;
-  var chunkSize = 700;
+  var chunkSize = 900;
   var positions = [];
-  // מספר chunks לפי אורך המאמר — יותר טקסט = יותר chunks = יותר שאלות
-  var numChunksNeeded = Math.min(6, Math.max(3, Math.ceil(members.length * 1.5)));
+  // יותר chunks = כיסוי רחב יותר של המאמר
+  var numChunksNeeded = Math.min(8, Math.max(4, members.length * 2));
   if (len <= chunkSize * 2) {
     positions = [0];
   } else {
-    var maxAttempts = 80;
+    var maxAttempts = 100;
     var attempts = 0;
     while (positions.length < numChunksNeeded && attempts < maxAttempts) {
       attempts++;
@@ -502,8 +502,8 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   }
   positions.sort(function(a, b) { return a - b; });
   var chunks = positions.map(function(p) { return wikiText.slice(p, p + chunkSize); });
-  var introStart = Math.floor(Math.random() * Math.min(400, Math.floor(len * 0.15)));
-  var wikiSlice = wikiText.slice(introStart, introStart + 600) + "\n\n..." + chunks.join("\n\n...");
+  var introStart = Math.floor(Math.random() * Math.min(500, Math.floor(len * 0.1)));
+  var wikiSlice = wikiText.slice(introStart, introStart + 800) + "\n\n..." + chunks.join("\n\n...");
 
   // הגבל מספר שאלות לפי אורך הטקסט
   var maxQuestionsFromText = Math.max(4, Math.floor(wikiSlice.length / 150));
@@ -1434,7 +1434,6 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   const [monthly, setMonthly] = useState({pts:[],avg:[]});
   const [tab, setTab] = useState("challenge");
   const pct = fp(members, scores);
-  const beat = creatorPct !== null && pct > creatorPct;
   // הודעות שמעודדות תמיד לשחק עוד
   var msg, sub, emoji;
   if (pct === 100)     { emoji = "🏆"; msg = "מושלם!"; sub = "אלופים! בואו ננסה נושא חדש?"; }
@@ -1450,6 +1449,10 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   }, [code]);
 
   const myRank = board.findIndex(r => r.family_name===familyName) + 1;
+  // מצא את הציון הגבוה ביותר של מתחרה (לא אנחנו)
+  var topRival = board.find(function(r) { return r.family_name !== familyName; });
+  var rivalPct = topRival ? topRival.family_pct : creatorPct;
+  var beat = rivalPct !== null && pct > rivalPct;
 
   return (
     <div style={{ animation:"slideIn .5s ease" }} key="results-screen">
@@ -1457,7 +1460,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
       <div style={{ ...C.card, textAlign:"center", marginBottom:14 }}>
         <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:8, animation:"bounce 1s ease infinite" }}>{emoji}</div>
         <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(26px, 16vw, 32px)", margin:"0 0 4px" }}>{msg}</h2>
-        {beat && <div style={{ color:"#4ade80", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:6 }}>🎯 ניצחתם! ({pct}% vs {creatorPct}%)</div>}
+        {beat && <div style={{ color:"#4ade80", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:6 }}>🎯 ניצחתם! ({pct}% מול {rivalPct}%)</div>}
         <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", margin:"0 0 6px", fontSize:"clamp(15px, 11vw, 20px)" }}>{sub}</p>
         <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", margin:"0 0 14px", fontSize:"clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
         <div style={{ background:"rgba(255,255,255,.08)", borderRadius:16, padding:"14px 24px", display:"inline-block" }}>
