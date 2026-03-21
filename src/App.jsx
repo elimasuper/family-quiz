@@ -891,8 +891,8 @@ function WelcomeScreen({ onDone }) {
     <div style={{ animation:"slideIn .4s ease" }}>
       <div style={{ textAlign:"center", marginBottom:24 }}>
         <div style={{ fontSize:"clamp(64px, 30vw, 77px)", animation:"bounce 2s ease infinite" }}>🦊</div>
-        <h1 style={{ fontFamily:"'Fredoka One',cursive", color:"#fff", fontSize:"clamp(32px, 19vw, 40px)", margin:"8px 0 4px" }}>חידון המשפחה</h1>
-        <p style={{ color:"#475569", fontSize:"clamp(17px, 12vw, 24px)", fontFamily:"'Varela Round',sans-serif", margin:0 }}>מבוסס ויקיפדיה · חידון שבועי · תחרות משפחות 🏆</p>
+        <h1 style={{ fontFamily:"'Fredoka One',cursive", color:"#fff", fontSize:"clamp(32px, 19vw, 40px)", margin:"8px 0 4px" }}>Dare2Know</h1>
+        <p style={{ color:"#475569", fontSize:"clamp(17px, 12vw, 24px)", fontFamily:"'Varela Round',sans-serif", margin:0 }}>אתגר ידע מבוסס ויקיפדיה · מי יודע יותר? 🏆</p>
       </div>
 
       <div style={{ display:"flex", gap:0, marginBottom:16, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:4 }}>
@@ -1053,8 +1053,8 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                         {ch.creator_family === family.name && (() => {
                           const url = window.location.origin + window.location.pathname + "?code=" + ch.code;
                           const myScore = ch.myScore !== null ? ch.myScore + "%" : "";
-                          const waMsg = encodeURIComponent("🎮 חידון המשפחה — " + ch.topic + "\nמשפחת " + family.name + " הגיעה ל-" + myScore + "! 🏆\nהאם תוכלו לעקוף אותנו?\nקוד: *" + ch.code + "*\n" + url);
-                          const plainMsg = "🎮 חידון המשפחה — " + ch.topic + "\nמשפחת " + family.name + " הגיעה ל-" + myScore + "! 🏆\nהאם תוכלו לעקוף אותנו?\nקוד: " + ch.code + "\n" + url;
+                          const waMsg = encodeURIComponent("🎮 Dare2Know — " + ch.topic + "\nמשפחת " + family.name + " הגיעה ל-" + myScore + "! 🏆\nהאם תוכלו לעקוף אותנו?\nקוד: *" + ch.code + "*\n" + url);
+                          const plainMsg = "🎮 Dare2Know — " + ch.topic + "\nמשפחת " + family.name + " הגיעה ל-" + myScore + "! 🏆\nהאם תוכלו לעקוף אותנו?\nקוד: " + ch.code + "\n" + url;
                           return (
                             <div style={{ display:"flex", gap:8, marginTop:8 }}>
                               <a href={"https://wa.me/?text=" + waMsg} target="_blank" rel="noreferrer"
@@ -1395,9 +1395,9 @@ function QuizScreen({ quizData, members, onFinish }) {
 function ShareScreen({ code, topic, familyName, pct, onContinue }) {
   const [copied, setCopied] = useState(false);
   const url = window.location.origin + window.location.pathname + "?code=" + code;
-  const waText = encodeURIComponent("🎮 חידון המשפחה — " + topic + "\nמשפחת " + familyName + " השיגה " + pct + "%!\n\nהאם תוכלו לנצח? 🏆\n\nקוד: *" + code + "*\n" + url);
+  const waText = encodeURIComponent("🎮 Dare2Know — " + topic + "\nמשפחת " + familyName + " השיגה " + pct + "%!\n\nהאם תוכלו לנצח? 🏆\n\nקוד: *" + code + "*\n" + url);
 
-  const fullMsg = "🎮 חידון המשפחה — " + topic + "\nמשפחת " + familyName + " השיגה " + pct + "%!\n\nהאם תוכלו לנצח? 🏆\n\nקוד: " + code + "\n" + url;
+  const fullMsg = "🎮 Dare2Know — " + topic + "\nמשפחת " + familyName + " השיגה " + pct + "%!\n\nהאם תוכלו לנצח? 🏆\n\nקוד: " + code + "\n" + url;
 
   const copy = () => { navigator.clipboard?.writeText(fullMsg).catch(function(){}); setCopied(true); setTimeout(function(){setCopied(false);},2000); };
 
