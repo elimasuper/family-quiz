@@ -556,14 +556,36 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   });
   await Promise.all(allPromises);
 
-  // חלק את השאלות שווה בשווה בין חברי כל קבוצה
-  var results = [];
-  var groupPools = {};
-  // העתק את המאגרים כדי לא לשנות את המקור
-  Object.keys(groupResults).forEach(function(k) { groupPools[k] = [].concat(groupResults[k] || []); });
+  // סנן כפילויות לפני חלוקה
+  var allPoolQuestions = [];
+  Object.keys(groupResults).forEach(function(k) {
+    groupResults[k].forEach(function(q) { allPoolQuestions.push({ group: k, q: q }); });
+  });
+  // Run dupe filter on the combined pool
+  var tempQuizData = { members: [{ name: "_pool", questions: allPoolQuestions.map(function(x) { return x.q; }) }] };
+  var filteredPool = await validateQuestions(tempQuizData, wikiText, topic);
+  var cleanQuestions = filteredPool.members[0].questions;
+  // Re-split into groups
+  var cleanGroups = {};
+  Object.keys(groupResults).forEach(function(k) { cleanGroups[k] = []; });
+  var ci = 0;
+  allPoolQuestions.forEach(function(item, origIdx) {
+    // Check if this question survived filtering
+    if (ci < cleanQuestions.length && cleanQuestions[ci] === item.q) {
+      cleanGroups[item.group].push(item.q);
+      ci++;
+    }
+  });
+  // Fallback: if filter removed too much, use original
+  Object.keys(groupResults).forEach(function(k) {
+    if (cleanGroups[k].length === 0) cleanGroups[k] = groupResults[k];
+  });
 
-  // שלב 1: חלק שווה בשווה — round-robin
+  // חלק שווה בשווה — round-robin
   var memberQueues = members.map(function(m) { return { name: m.name, level: levelKey(m), questions: [], needed: ag(m.age).qCount }; });
+  var groupPools = {};
+  Object.keys(cleanGroups).forEach(function(k) { groupPools[k] = [].concat(cleanGroups[k]); });
+
   var changed = true;
   while (changed) {
     changed = false;
@@ -574,7 +596,39 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
       }
     });
   }
-  results = memberQueues.map(function(mq) { return { name: mq.name, questions: mq.questions }; });
+
+  // אם משתתף חסר שאלות — בקש עוד קריאה
+  var shortMembers = memberQueues.filter(function(mq) { return mq.questions.length < mq.needed; });
+  if (shortMembers.length > 0) {
+    var fillPromises = [];
+    var fillGroups = {};
+    shortMembers.forEach(function(mq) {
+      if (!fillGroups[mq.level]) fillGroups[mq.level] = 0;
+      fillGroups[mq.level] += (mq.needed - mq.questions.length);
+    });
+    Object.keys(fillGroups).forEach(function(k) {
+      var grpMembers = groups[k];
+      var needed = fillGroups[k] + 2;
+      fillPromises.push(
+        generateQuestionsForGroup(wikiSlice, grpMembers, Math.min(needed, MAX_Q_PER_CALL), usedQ, 99).then(function(questions) {
+          if (!groupPools[k]) groupPools[k] = [];
+          questions.forEach(function(q) { groupPools[k].push(q); });
+        })
+      );
+    });
+    await Promise.all(fillPromises);
+    // חלק שוב
+    memberQueues.forEach(function(mq) {
+      while (mq.questions.length < mq.needed && groupPools[mq.level] && groupPools[mq.level].length > 0) {
+        mq.questions.push(groupPools[mq.level].shift());
+      }
+    });
+  }
+
+  // חתוך למספר הקבוע — לא יותר מ-qCount לכל משתתף
+  var results = memberQueues.map(function(mq) {
+    return { name: mq.name, questions: mq.questions.slice(0, mq.needed) };
+  });
 
   // שמור שאלות ב-history למניעת חזרות
   if (topic) {
@@ -585,7 +639,7 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
 }
 
 // ─── QUESTION VALIDATION ─────────────────────────────────────────────────────
-async function validateQuestions(quizData, wikiText) {
+async function validateQuestions(quizData, wikiText, topicTitle) {
   var allQuestions = quizData.members.flatMap(function(m) {
     return m.questions.map(function(q, qi) {
       return { member: m.name, qi: qi, question: q.question, answers: q.answers, correct_index: q.correct_index, correct_answer: q.answers[q.correct_index] };
@@ -593,18 +647,22 @@ async function validateQuestions(quizData, wikiText) {
   });
   if (!allQuestions.length) return quizData;
 
-  // סינון כפילויות חכם — מילות מפתח + תשובה זהה + ישויות משותפות
+  // מילות עצירה + מילות הנושא (כדי שלא כל שאלה תיחשב כפילות בגלל "כדורסל")
   var stopWords = ["מה","מי","איזה","איזו","כמה","מתי","איפה","האם","של","את","על","הוא","היא","זה","זו","הם","הן","או","עם","לא","כן","גם","רק","אם","אבל","כי","כל","היה","היו","היתה","שהוא","שהיא","שהם","אחד","אחת","יותר","הכי","לפי","בין","תוך","עד","נקרא","נקראת","נחשב","באיזה","באיזו","למה","מדוע","כיצד"];
+  // הוסף את מילות הנושא לרשימת העצירה
+  var topicWords = (topicTitle || "").replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 1; });
+  var allStops = stopWords.concat(topicWords);
+
   var getWords = function(text) {
-    return text.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 1 && stopWords.indexOf(w) === -1; });
+    return text.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 1 && allStops.indexOf(w) === -1; });
   };
   var getEntities = function(text) {
-    return text.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length >= 4 && stopWords.indexOf(w) === -1; });
+    return text.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length >= 4 && allStops.indexOf(w) === -1; });
   };
 
   var dupeIndices = new Set();
   var qWords = allQuestions.map(function(q) { return getWords(q.question); });
-  var qEntities = allQuestions.map(function(q) { return getEntities(q.question + " " + q.correct_answer + " " + q.answers.join(" ")); });
+  var qEntities = allQuestions.map(function(q) { return getEntities(q.question + " " + q.correct_answer); });
 
   allQuestions.forEach(function(q, i) {
     if (dupeIndices.has(i)) return;
@@ -612,15 +670,15 @@ async function validateQuestions(quizData, wikiText) {
       if (dupeIndices.has(j)) continue;
       // בדיקה 1: תשובה נכונה זהה
       if (q.correct_answer === allQuestions[j].correct_answer) { dupeIndices.add(j); continue; }
-      // בדיקה 2: overlap מילים כללי
+      // בדיקה 2: overlap מילים כללי (60%+ = כפילות ברורה)
       var shared = 0;
       qWords[i].forEach(function(w) { if (qWords[j].indexOf(w) !== -1) shared++; });
       var overlap = shared / Math.max(1, Math.min(qWords[i].length, qWords[j].length));
-      if (overlap >= 0.5) { dupeIndices.add(j); continue; }
-      // בדיקה 3: ישות מפתח משותפת (שם, מושג ספציפי)
+      if (overlap >= 0.6) { dupeIndices.add(j); continue; }
+      // בדיקה 3: 2+ ישויות מפתח משותפות (לא כולל שם הנושא)
       var sharedE = 0;
       qEntities[i].forEach(function(e) { if (qEntities[j].indexOf(e) !== -1) sharedE++; });
-      if (sharedE >= 1 && overlap >= 0.25) { dupeIndices.add(j); continue; }
+      if (sharedE >= 2) { dupeIndices.add(j); continue; }
     }
   });
 
@@ -1587,7 +1645,7 @@ function AppInner() {
     }
     const seed = Math.random().toString(36).slice(2,8);
     const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
-    const validated = await validateQuestions(data, wiki.text);
+    const validated = await validateQuestions(data, wiki.text, wiki.title);
     return validated;
   };
 
