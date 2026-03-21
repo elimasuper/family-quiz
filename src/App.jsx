@@ -464,7 +464,7 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
     + "\n2b. אם כבר נוצרו שאלות בקריאות אחרות לאותה קבוצת גיל, חובה להתרחק מהן: לא אותו פרט, לא אותו מושג, לא אותה עובדה בניסוח אחר."
     + "\n3. חשוב מאוד: פזר שאלות על כל חלקי הטקסט! שאלה 1 מההתחלה, שאלה 2 מהאמצע, שאלה 3 מהסוף, וכן הלאה. אסור שרוב השאלות יהיו מאותו קטע."
     + "\n4. אסור שהתשובה הנכונה תופיע בגוף השאלה."
-    + "\n5. עברית טבעית ותקנית — כמו שמדברים בישראל. השתמש במונחים הנכונים (למשל: 'נקודות' ולא 'טיפים', 'קבוצה' ולא 'צוות'). אם לא בטוח במונח — השתמש במילה מהטקסט עצמו."
+    + "\n5. עברית תקנית וברורה. כללים חשובים: המשפט חייב להיות תקין דקדוקית — נושא, נשוא ומשלים בסדר הגיוני. אסור משפטים מקוטעים או מבולבלים. השתמש במונחים שמופיעים בטקסט עצמו. דוגמה נכונה: 'כמה נקודות מקבלים על קליעה מעבר לקו?' דוגמה שגויה: 'כמה טיפים מקבל מי שקולע מרחוק?'"
     + "\n6. 4 תשובות לכל שאלה, כך: תשובה נכונה אחת, 2 מסיחים סבירים שנשמעים אפשריים אבל שגויים, ומסיח אחד הומוריסטי/אבסורדי שברור שהוא לא נכון אבל מצחיק (למשל: אם השאלה על דינוזאורים, מסיח כמו 'פיצה')."
     + "\n7. אסור שהמסיחים יהיו דומים זה לזה — כל תשובה חייבת להיות שונה בבירור."
     + "\n8. emoji אחד כללי ורלוונטי לנושא השאלה, אבל לא כזה שחושף או מרמז על התשובה הנכונה."
@@ -1460,7 +1460,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
       <div style={{ ...C.card, textAlign:"center", marginBottom:14 }}>
         <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:8, animation:"bounce 1s ease infinite" }}>{emoji}</div>
         <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(26px, 16vw, 32px)", margin:"0 0 4px" }}>{msg}</h2>
-        {beat && <div style={{ color:"#4ade80", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:6 }}>🎯 ניצחתם! ({pct}% מול {rivalPct}%)</div>}
+        {beat && <div style={{ color:"#4ade80", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:6 }}>🎯 ניצחתם! ({pct}% vs {rivalPct}%)</div>}
         <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", margin:"0 0 6px", fontSize:"clamp(15px, 11vw, 20px)" }}>{sub}</p>
         <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", margin:"0 0 14px", fontSize:"clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
         <div style={{ background:"rgba(255,255,255,.08)", borderRadius:16, padding:"14px 24px", display:"inline-block" }}>
@@ -1639,7 +1639,8 @@ function AppInner() {
   const buildQuiz = async (t, mems) => {
     const wiki = await fetchWiki(t);
     if (wiki.shortArticle) {
-      setError("📄 המאמר קצר — ייתכנו חזרות. נסו נושא עם מאמר ארוך יותר!");
+      setError("📄 המאמר קצר — ייתכנו חזרות");
+      setTimeout(function() { setError(""); }, 4000);
     }
     const seed = Math.random().toString(36).slice(2,8);
     const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
