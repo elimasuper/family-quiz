@@ -556,35 +556,34 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   });
   await Promise.all(allPromises);
 
-  // סנן כפילויות לפני חלוקה
-  var allPoolQuestions = [];
+  // סנן כפילויות בתוך כל group בנפרד
+  var topicWords = (topic || "").replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 1; });
   Object.keys(groupResults).forEach(function(k) {
-    groupResults[k].forEach(function(q) { allPoolQuestions.push({ group: k, q: q }); });
-  });
-  // Run dupe filter on the combined pool
-  var tempQuizData = { members: [{ name: "_pool", questions: allPoolQuestions.map(function(x) { return x.q; }) }] };
-  var filteredPool = await validateQuestions(tempQuizData, wikiText, topic);
-  var cleanQuestions = filteredPool.members[0].questions;
-  // Re-split into groups
-  var cleanGroups = {};
-  Object.keys(groupResults).forEach(function(k) { cleanGroups[k] = []; });
-  var ci = 0;
-  allPoolQuestions.forEach(function(item, origIdx) {
-    // Check if this question survived filtering
-    if (ci < cleanQuestions.length && cleanQuestions[ci] === item.q) {
-      cleanGroups[item.group].push(item.q);
-      ci++;
-    }
-  });
-  // Fallback: if filter removed too much, use original
-  Object.keys(groupResults).forEach(function(k) {
-    if (cleanGroups[k].length === 0) cleanGroups[k] = groupResults[k];
+    var qs = groupResults[k];
+    var keep = [];
+    qs.forEach(function(q) {
+      var dominated = false;
+      var qText = q.question + " " + q.answers[q.correct_index];
+      var qWords = qText.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 2 && topicWords.indexOf(w) === -1; });
+      for (var j = 0; j < keep.length; j++) {
+        var kText = keep[j].question + " " + keep[j].answers[keep[j].correct_index];
+        var kWords = kText.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 2 && topicWords.indexOf(w) === -1; });
+        // תשובה זהה = כפילות
+        if (q.answers[q.correct_index] === keep[j].answers[keep[j].correct_index]) { dominated = true; break; }
+        // 60%+ overlap מילים = כפילות
+        var shared = 0;
+        qWords.forEach(function(w) { if (kWords.indexOf(w) !== -1) shared++; });
+        if (qWords.length > 0 && shared / qWords.length >= 0.6) { dominated = true; break; }
+      }
+      if (!dominated) keep.push(q);
+    });
+    groupResults[k] = keep;
   });
 
-  // חלק שווה בשווה — round-robin
+  // חלק round-robin — כל משתתף מקבל שאלה בתור
   var memberQueues = members.map(function(m) { return { name: m.name, level: levelKey(m), questions: [], needed: ag(m.age).qCount }; });
   var groupPools = {};
-  Object.keys(cleanGroups).forEach(function(k) { groupPools[k] = [].concat(cleanGroups[k]); });
+  Object.keys(groupResults).forEach(function(k) { groupPools[k] = [].concat(groupResults[k]); });
 
   var changed = true;
   while (changed) {
@@ -597,27 +596,23 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     });
   }
 
-  // אם משתתף חסר שאלות — בקש עוד קריאה
+  // אם מישהו חסר — קריאה נוספת להשלמה
   var shortMembers = memberQueues.filter(function(mq) { return mq.questions.length < mq.needed; });
   if (shortMembers.length > 0) {
     var fillPromises = [];
     var fillGroups = {};
     shortMembers.forEach(function(mq) {
       if (!fillGroups[mq.level]) fillGroups[mq.level] = 0;
-      fillGroups[mq.level] += (mq.needed - mq.questions.length);
+      fillGroups[mq.level] += (mq.needed - mq.questions.length) + 2;
     });
     Object.keys(fillGroups).forEach(function(k) {
-      var grpMembers = groups[k];
-      var needed = fillGroups[k] + 2;
       fillPromises.push(
-        generateQuestionsForGroup(wikiSlice, grpMembers, Math.min(needed, MAX_Q_PER_CALL), usedQ, 99).then(function(questions) {
-          if (!groupPools[k]) groupPools[k] = [];
-          questions.forEach(function(q) { groupPools[k].push(q); });
+        generateQuestionsForGroup(wikiSlice, groups[k], Math.min(fillGroups[k], MAX_Q_PER_CALL), usedQ, 99).then(function(questions) {
+          questions.forEach(function(q) { groupPools[k] = (groupPools[k] || []).concat([q]); });
         })
       );
     });
     await Promise.all(fillPromises);
-    // חלק שוב
     memberQueues.forEach(function(mq) {
       while (mq.questions.length < mq.needed && groupPools[mq.level] && groupPools[mq.level].length > 0) {
         mq.questions.push(groupPools[mq.level].shift());
@@ -625,7 +620,7 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     });
   }
 
-  // חתוך למספר הקבוע — לא יותר מ-qCount לכל משתתף
+  // חתוך למספר קבוע — בדיוק qCount לכל משתתף
   var results = memberQueues.map(function(mq) {
     return { name: mq.name, questions: mq.questions.slice(0, mq.needed) };
   });
@@ -1645,8 +1640,7 @@ function AppInner() {
     }
     const seed = Math.random().toString(36).slice(2,8);
     const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
-    const validated = await validateQuestions(data, wiki.text, wiki.title);
-    return validated;
+    return data;
   };
 
   const handlePlay = async (t) => {
