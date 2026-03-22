@@ -353,18 +353,14 @@ async function fetchWiki(topic) {
   // אם המאמר קצר — העשר עם מאמרי "ראו גם"
   var MIN_RICH = 4000;
   var originalLength = direct.text.length;
-  console.log("[fetchWiki] Original length:", originalLength, "title:", direct.title);
   if (direct.text.length < MIN_RICH) {
     var related = await getSeeAlso(direct.title);
-    console.log("[fetchWiki] Related articles from 'see also':", related);
     for (var i = 0; i < related.length && direct.text.length < MIN_RICH; i++) {
       var extra = await get(related[i]);
-      console.log("[fetchWiki] Fetched related:", related[i], extra ? ("length: " + extra.text.length) : "NOT FOUND");
       if (extra) {
         direct.text = direct.text + "\n\n" + extra.title + "\n" + extra.text.slice(0, 2000);
       }
     }
-    console.log("[fetchWiki] After enrichment, total length:", direct.text.length);
   }
 
   // ההתראה מבוססת על אורך המאמר המקורי, לא אחרי ההעשרה
@@ -468,7 +464,7 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
     + "\n1. שאלות מהטקסט בלבד — אסור להמציא עובדות."
       + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים. לפני שאתה כותב שאלה, ודא שלא דומה לאף שאלה קודמת — לא אותו נושא, עובדה או מושג."
     + "\n2b. אם כבר נוצרו שאלות בקריאות אחרות לאותה קבוצת גיל, חובה להתרחק מהן: לא אותו פרט, לא אותו מושג, לא אותה עובדה בניסוח אחר."
-    + "\n3. חשוב מאוד: פזר שאלות על כל חלקי הטקסט! שאלה 1 מההתחלה, שאלה 2 מהאמצע, שאלה 3 מהסוף, וכן הלאה. אסור שרוב השאלות יהיו מאותו קטע."
+    + "\n3. חשוב מאוד: הטקסט מכיל מספר נושאים וחלקים — חובה לשאול שאלות מכל החלקים! אל תתמקד רק בחלק הראשון. אם יש בטקסט כמה נושאים שונים (למשל: כוסות ובקבוקים) — חובה לשאול שאלות גם על הנושא השני."
     + "\n4. אסור שהתשובה הנכונה תופיע בגוף השאלה."
     + "\n5. עברית תקנית וברורה. כללים חשובים: המשפט חייב להיות תקין דקדוקית — נושא, נשוא ומשלים בסדר הגיוני. אסור משפטים מקוטעים או מבולבלים. השתמש במונחים שמופיעים בטקסט עצמו. דוגמה נכונה: 'כמה נקודות מקבלים על קליעה מעבר לקו?' דוגמה שגויה: 'כמה טיפים מקבל מי שקולע מרחוק?'"
     + "\n6. 4 תשובות לכל שאלה, כך: תשובה נכונה אחת, 2 מסיחים סבירים שנשמעים אפשריים אבל שגויים, ומסיח אחד הומוריסטי/אבסורדי שברור שהוא לא נכון אבל מצחיק (למשל: אם השאלה על דינוזאורים, מסיח כמו 'פיצה')."
