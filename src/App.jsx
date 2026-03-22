@@ -69,7 +69,7 @@ async function savePushSubscription(familyName, subscription) {
   return sbSafe(function() {
     return sbFetch("push_subscriptions", {
       method: "POST",
-      prefer: "return=minimal",
+      prefer: "resolution=merge-duplicates,return=minimal",
       body: JSON.stringify({ family_name: familyName, subscription: subJson }),
     });
   }, null, null);
