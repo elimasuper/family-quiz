@@ -9,9 +9,9 @@ class ErrorBoundary extends Component {
       <div style={{ minHeight:"100vh", background:"#0f172a", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
         <div style={{ background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.3)", borderRadius:20, padding:24, textAlign:"center", maxWidth:340 }}>
           <div style={{ fontSize:48, marginBottom:12 }}>😵</div>
-          <div style={{ color:"#f87171", fontFamily:"Fredoka One,cursive", fontSize:22, marginBottom:8 }}>משהו השתבש</div>
+          <div style={{ color:"#f87171", fontFamily:"Rubik,sans-serif", fontSize:22, marginBottom:8 }}>משהו השתבש</div>
           <div style={{ color:"#94a3b8", fontSize:14, marginBottom:20 }}>{this.state.error}</div>
-          <button onClick={() => window.location.reload()} style={{ background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:12, color:"#fff", fontFamily:"Fredoka One,cursive", fontSize:18, padding:"10px 24px", cursor:"pointer" }}>
+          <button onClick={() => window.location.reload()} style={{ background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:12, color:"#fff", fontFamily:"Rubik,sans-serif", fontSize:18, padding:"10px 24px", cursor:"pointer" }}>
             🔄 טען מחדש
           </button>
         </div>
@@ -811,10 +811,10 @@ const LOAD_MSGS = ["🔍 מחפש בויקיפדיה...","📖 קורא את ה�
 // ─── SHARED STYLES ────────────────────────────────────────────────────────────
 const C = {
   card: { background: "rgba(255,255,255,0.055)", backdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 22, padding: "clamp(14px,2vw,28px)", marginBottom: 14 },
-  lbl:  { color: "#64748b", fontFamily: "'Fredoka One',cursive", fontSize: 13, display: "block", marginBottom: 7 },
+  lbl:  { color: "#64748b", fontFamily: "'Rubik',sans-serif", fontSize: 13, display: "block", marginBottom: 7 },
   inp:  { width: "100%", background: "rgba(255,255,255,0.07)", border: "2px solid rgba(255,255,255,0.12)", borderRadius: 12, padding: "12px 14px", color: "#fff", fontSize: 16, fontFamily: "'Varela Round',sans-serif", outline: "none", transition: "border-color 0.2s", marginBottom: 4 },
-  btnP: { width: "100%", padding: "15px", background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", borderRadius: 18, color: "#fff", fontFamily: "'Fredoka One',cursive", fontSize: 20, cursor: "pointer", boxShadow: "0 4px 24px #7c3aed55", transition: "all 0.2s", marginBottom: 8, display: "block" },
-  btnS: { width: "100%", padding: "13px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 18, color: "#94a3b8", fontFamily: "'Fredoka One',cursive", fontSize: 16, cursor: "pointer", transition: "all 0.2s", marginBottom: 8, display: "block" },
+  btnP: { width: "100%", padding: "15px", background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", borderRadius: 18, color: "#fff", fontFamily: "'Rubik',sans-serif", fontSize: 20, cursor: "pointer", boxShadow: "0 4px 24px #7c3aed55", transition: "all 0.2s", marginBottom: 8, display: "block" },
+  btnS: { width: "100%", padding: "13px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 18, color: "#94a3b8", fontFamily: "'Rubik',sans-serif", fontSize: 16, cursor: "pointer", transition: "all 0.2s", marginBottom: 8, display: "block" },
 };
 
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────────
@@ -842,7 +842,7 @@ function Spotlight({ member, onDone }) {
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", animation:"fadeSpot 1.4s ease forwards" }}>
       <div style={{ textAlign:"center", animation:"popIn .4s ease" }}>
         <div style={{ width:90, height:90, borderRadius:"50%", background:(g.color + "22"), border:("3px solid " + g.color), display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(44px, 23vw, 53px)", margin:"0 auto 12px", boxShadow:("0 0 40px " + g.color + "88") }}>{g.emoji}</div>
-        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(32px, 19vw, 40px)" }}>תור של {member.name}!</div>
+        <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(32px, 19vw, 40px)" }}>תור של {member.name}!</div>
         <div style={{ color:g.color, fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(18px, 13vw, 25px)", marginTop:6 }}>{g.label}</div>
       </div>
     </div>
@@ -867,7 +867,7 @@ function TimerBar({ seconds, color, onExpire, onTick }) {
       <div style={{ flex:1, background:"rgba(255,255,255,0.1)", borderRadius:20, height:10, overflow:"hidden" }}>
         <div style={{ width:(pct*100 + "%"), height:"100%", background:col, borderRadius:20, transition:"width 1s linear, background .3s" }} />
       </div>
-      <div style={{ color:col, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", minWidth:32, textAlign:"center", animation:left<=5?"shake .3s ease infinite":"none" }}>{left}</div>
+      <div style={{ color:col, fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", minWidth:32, textAlign:"center", animation:left<=5?"shake .3s ease infinite":"none" }}>{left}</div>
     </div>
   );
 }
@@ -892,10 +892,10 @@ function PushModal({ familyName, onDone }) {
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease" }}>
       <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"1px solid rgba(167,139,250,.3)", borderRadius:24, padding:"clamp(20px,4vw,32px)", maxWidth:380, width:"100%", textAlign:"center" }}>
         <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:12 }}>🔔</div>
-        <h2 style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 8px" }}>לא לפספס!</h2>
+        <h2 style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 8px" }}>לא לפספס!</h2>
         <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 19px)", margin:"0 0 6px", lineHeight:1.6 }}>מישהו עקף אותכם? תקבלו התראה מיד!</p>
         <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>ללא ספאם, רק כשמישהו משיג ציון גבוה יותר מכם</p>
-        <button onClick={accept} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🔔 הפעילו התראות</button>
+        <button onClick={accept} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🔔 הפעילו התראות</button>
         <button onClick={dismiss} style={{ width:"100%", padding:"10px", background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>אולי אחר כך</button>
       </div>
     </div>
@@ -928,12 +928,12 @@ function InstallBanner({ onDismiss }) {
       <div style={{ maxWidth:900, margin:"0 auto", display:"flex", alignItems:"center", gap:12 }}>
         <div style={{ fontSize:"clamp(36px, 20vw, 45px)" }}>📲</div>
         <div style={{ flex:1 }}>
-          <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)" }}>הוסיפו לדף הבית!</div>
+          <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 25px)" }}>הוסיפו לדף הבית!</div>
           <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", marginTop:2 }}>
             {isIOS ? "לחצו על Share ← Add to Home Screen" : "גישה מהירה כמו אפליקציה"}
           </div>
         </div>
-        {!isIOS && <button onClick={install} style={{ background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:12, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", padding:"8px 16px", cursor:"pointer" }}>התקן</button>}
+        {!isIOS && <button onClick={install} style={{ background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:12, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", padding:"8px 16px", cursor:"pointer" }}>התקן</button>}
         <button onClick={dismiss} style={{ background:"none", border:"none", color:"#475569", fontSize:"clamp(22px, 15vw, 29px)", cursor:"pointer", padding:"4px" }}>×</button>
       </div>
     </div>
@@ -980,14 +980,20 @@ function WelcomeScreen({ onDone }) {
   return (
     <div style={{ animation:"slideIn .4s ease" }}>
       <div style={{ textAlign:"center", marginBottom:24 }}>
-        <div style={{ fontSize:"clamp(64px, 30vw, 77px)", animation:"bounce 2s ease infinite" }}>🦊</div>
-        <h1 style={{ fontFamily:"'Fredoka One',cursive", color:"#fff", fontSize:"clamp(32px, 19vw, 40px)", margin:"8px 0 4px" }}>Dare2Know</h1>
-        <p style={{ color:"#475569", fontSize:"clamp(17px, 12vw, 24px)", fontFamily:"'Varela Round',sans-serif", margin:0 }}>אתגר ידע מבוסס ויקיפדיה · מי יודע יותר? 🏆</p>
+        <div style={{ display:"inline-block", animation:"bounce 2s ease infinite" }}>
+          <div style={{ width:"clamp(80px, 28vw, 110px)", height:"clamp(80px, 28vw, 110px)", borderRadius:24, background:"linear-gradient(135deg,#7c3aed,#1e40af)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto", boxShadow:"0 8px 32px rgba(124,58,237,0.4)", border:"3px solid rgba(251,191,36,0.4)" }}>
+            <span style={{ fontSize:"clamp(40px, 18vw, 56px)" }}>🧠</span>
+          </div>
+        </div>
+        <h1 style={{ fontFamily:"'Rubik',sans-serif", fontWeight:900, color:"#fff", fontSize:"clamp(34px, 20vw, 44px)", margin:"12px 0 2px", letterSpacing:"-1px" }}>
+          <span style={{ color:"#fbbf24" }}>Dare</span><span style={{ color:"#fff" }}>2</span><span style={{ color:"#a78bfa" }}>Know</span>
+        </h1>
+        <p style={{ color:"#94a3b8", fontSize:"clamp(15px, 11vw, 20px)", fontFamily:"'Heebo',sans-serif", margin:0, fontWeight:400 }}>אתגר ידע מבוסס ויקיפדיה · מי יודע יותר? 🏆</p>
       </div>
 
       <div style={{ display:"flex", gap:0, marginBottom:16, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:4 }}>
         {[{k:"new",l:"✨ משפחה חדשה"},{k:"returning",l:"👋 כבר רשומים"}].map(({k,l}) => (
-          <button key={k} onClick={() => setMode(k)} style={{ flex:1, padding:"10px", border:"none", borderRadius:11, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", background:mode===k?"rgba(124,58,237,0.4)":"transparent", color:mode===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
+          <button key={k} onClick={() => setMode(k)} style={{ flex:1, padding:"10px", border:"none", borderRadius:11, cursor:"pointer", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", background:mode===k?"rgba(124,58,237,0.4)":"transparent", color:mode===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
         ))}
       </div>
 
@@ -1076,9 +1082,9 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
   return (
     <div style={{ animation:"slideIn .4s ease" }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20, padding:"12px 16px", background:"rgba(255,255,255,0.05)", borderRadius:18, border:"1px solid rgba(255,255,255,0.08)" }}>
-        <div style={{ fontSize:"clamp(32px, 19vw, 40px)" }}>🦊</div>
+        <div style={{ width:40, height:40, borderRadius:10, background:"linear-gradient(135deg,#7c3aed,#1e40af)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, boxShadow:"0 2px 8px rgba(124,58,237,0.3)" }}>🧠</div>
         <div style={{ flex:1 }}>
-          <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)" }}>שלום משפחת {family.name}! 👋</div>
+          <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 25px)" }}>שלום משפחת {family.name}! 👋</div>
           <div style={{ color:"#334155", fontSize:"clamp(16px, 12vw, 22px)", fontFamily:"'Varela Round',sans-serif" }}>{family.members.length} משתתפים</div>
         </div>
         <button onClick={onEditFamily} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", padding:"6px 12px", cursor:"pointer" }}>✏️ עדכון</button>
@@ -1087,7 +1093,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
 
       <div style={{ display:"flex", gap:0, marginBottom:14, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:4 }}>
         {[{k:"play",l:"🎮 שחק"},{k:"join",l:"⚔️ אתגר"},{k:"board",l:"🏆 לוח"},{k:"badges",l:"🎖️ הישגים"}].map(({k,l}) => (
-          <button key={k} onClick={() => setTab(k)} style={{ flex:1, padding:"9px", border:"none", borderRadius:11, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", background:tab===k?"rgba(124,58,237,0.4)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
+          <button key={k} onClick={() => setTab(k)} style={{ flex:1, padding:"9px", border:"none", borderRadius:11, cursor:"pointer", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", background:tab===k?"rgba(124,58,237,0.4)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
         ))}
       </div>
 
@@ -1104,7 +1110,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
 
           {!challengeLoading && myChallenges.length > 0 && (
             <div style={C.card}>
-              <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 22px)", marginBottom:10 }}>⚔️ האתגרים שלי</div>
+              <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 22px)", marginBottom:10 }}>⚔️ האתגרים שלי</div>
               {myChallenges.map((ch,i) => {
                 const isOpen = selectedChallenge === ch.code;
                 const daysLeft = Math.ceil((new Date(ch.expires_at||Date.now()+86400000) - new Date()) / 86400000);
@@ -1114,13 +1120,13 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                       style={{ width:"100%", background:isOpen?"rgba(167,139,250,.15)":"rgba(255,255,255,.04)", border:("1px solid " + (isOpen?"#a78bfa44":"rgba(255,255,255,.08)")), borderRadius:14, padding:"12px", cursor:"pointer", textAlign:"right", transition:"all .2s" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                         <div style={{ flex:1 }}>
-                          <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>{ch.topic}</div>
+                          <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>{ch.topic}</div>
                           <div style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", marginTop:2 }}>
                             {ch.total} משפחות · {daysLeft} ימים נותרו
                           </div>
                         </div>
                         <div style={{ textAlign:"center" }}>
-                          {ch.myRank && <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 24px)" }}>#{ch.myRank}</div>}
+                          {ch.myRank && <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 24px)" }}>#{ch.myRank}</div>}
                           {ch.myScore !== null && <div style={{ color:"#94a3b8", fontSize:"clamp(13px, 10vw, 15px)" }}>{ch.myScore}%</div>}
                         </div>
                         <div style={{ color:"#475569", fontSize:"clamp(16px, 12vw, 20px)" }}>{isOpen?"▲":"▼"}</div>
@@ -1148,7 +1154,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                               <div key={ri} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 8px", marginBottom:4, background:isMe?"rgba(167,139,250,.15)":"transparent", borderRadius:10, border:("1px solid " + (isMe?"#a78bfa44":"transparent")) }}>
                                 <span style={{ fontSize:"clamp(16px, 12vw, 20px)", minWidth:22 }}>{rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":(rank + ".")}</span>
                                 <span style={{ flex:1, color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 18px)" }}>{r.family_name}{isMe?" ← אתם":""}</span>
-                                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.family_pct}%</span>
+                                <span style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.family_pct}%</span>
                               </div>
                             );
                           });
@@ -1161,18 +1167,18 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                           return (
                             <div style={{ display:"flex", gap:8, marginTop:8 }}>
                               <a href={"https://wa.me/?text=" + waMsg} target="_blank" rel="noreferrer"
-                                style={{ flex:2, display:"block", padding:"10px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 10vw, 17px)", textDecoration:"none", textAlign:"center", boxShadow:"0 4px 20px #16a34a55" }}>
+                                style={{ flex:2, display:"block", padding:"10px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", textDecoration:"none", textAlign:"center", boxShadow:"0 4px 20px #16a34a55" }}>
                                 📱 שתף בוואטסאפ
                               </a>
                               <button onClick={function(e) { navigator.clipboard?.writeText(plainMsg); var btn=e.currentTarget; btn.textContent="✅ הועתק!"; btn.style.color="#4ade80"; setTimeout(function(){ btn.textContent="📋 העתק"; btn.style.color="#94a3b8"; }, 2000); }}
-                                style={{ flex:1, padding:"10px", background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.15)", borderRadius:18, color:"#94a3b8", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>
+                                style={{ flex:1, padding:"10px", background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.15)", borderRadius:18, color:"#94a3b8", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>
                                 📋 העתק
                               </button>
                             </div>
                           );
                         })()}
                         <button onClick={() => onJoin(ch.code)}
-                          style={{ width:"100%", marginTop:8, padding:"10px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer", boxShadow:"0 4px 20px #7c3aed55" }}>
+                          style={{ width:"100%", marginTop:8, padding:"10px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:18, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer", boxShadow:"0 4px 20px #7c3aed55" }}>
                           🔥 {ch.myScore !== null ? "שפרו את הציון!" : "שחקו באתגר!"}
                         </button>
                       </div>
@@ -1188,7 +1194,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
             <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 14px" }}>קיבלתם קוד מחברים? הכניסו אותו ותתחרו!</p>
             <label style={C.lbl}>🔑 קוד החידון</label>
             <input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="123456" maxLength={6} type="text" inputMode="numeric"
-              style={{ ...C.inp, fontSize:"clamp(32px, 19vw, 40px)", textAlign:"center", letterSpacing:10, fontFamily:"'Fredoka One',cursive" }}
+              style={{ ...C.inp, fontSize:"clamp(32px, 19vw, 40px)", textAlign:"center", letterSpacing:10, fontFamily:"'Rubik',sans-serif" }}
               onFocus={e=>e.target.style.borderColor="#fbbf24"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"}
               onKeyDown={e=>e.key==="Enter"&&code.length>=4&&onJoin(code)} />
             <button onClick={() => code.length>=4&&onJoin(code)} disabled={code.length<4}
@@ -1201,7 +1207,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
 
       {tab === "board" && (
         <div style={C.card}>
-          <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:12 }}>🏆 לוח הגיבורים החודשי</div>
+          <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:12 }}>🏆 לוח הגיבורים החודשי</div>
           {(monthly.pts||[]).length === 0 && <div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", padding:"20px 0" }}>אין עדיין תוצאות — היו הראשונים! 🎉</div>}
           {(monthly.pts||[]).map((r,i) => {
             const isMe = r.family_name === family.name;
@@ -1209,7 +1215,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
               <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", marginBottom:6, background:isMe?"rgba(167,139,250,0.15)":"rgba(255,255,255,0.03)", borderRadius:12, border:("1px solid " + (isMe?"#a78bfa44":"transparent")) }}>
                 <span style={{ fontSize:"clamp(18px, 13vw, 25px)", minWidth:24 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":(i+1 + ".")}</span>
                 <span style={{ flex:1, color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)" }}>{r.family_name}{isMe?" (אתם)":""}</span>
-                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)" }}>{r.monthly_points}נק'</span>
+                <span style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 25px)" }}>{r.monthly_points}נק'</span>
                 {r.streak > 1 && <span style={{ fontSize:"clamp(15px, 11vw, 21px)" }}>🔥{r.streak}</span>}
               </div>
             );
@@ -1220,7 +1226,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
       {tab === "badges" && (
         <>
           <div style={C.card}>
-            <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:14 }}>🎖️ ההישגים של משפחת {family.name}</div>
+            <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:14 }}>🎖️ ההישגים של משפחת {family.name}</div>
             {myBadges ? (
               <>
                 <div style={{ display:"flex", justifyContent:"center", gap:16, marginBottom:16, flexWrap:"wrap" }}>
@@ -1232,7 +1238,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                     return (
                       <div key={b.label} style={{ textAlign:"center", minWidth:70 }}>
                         <div style={{ fontSize:"clamp(32px, 18vw, 40px)" }}>{b.emoji}</div>
-                        <div style={{ color:b.color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 28px)" }}>{b.count}</div>
+                        <div style={{ color:b.color, fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)" }}>{b.count}</div>
                         <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)" }}>{b.label}</div>
                       </div>
                     );
@@ -1248,7 +1254,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                     return (
                       <div key={b.label} style={{ textAlign:"center", minWidth:70 }}>
                         <div style={{ fontSize:"clamp(24px, 16vw, 32px)" }}>{b.emoji}</div>
-                        <div style={{ color:"#c4b5fd", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 24px)" }}>{b.count}</div>
+                        <div style={{ color:"#c4b5fd", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 24px)" }}>{b.count}</div>
                         <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)" }}>{b.label}</div>
                       </div>
                     );
@@ -1259,7 +1265,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
           </div>
 
           <div style={C.card}>
-            <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:12 }}>📊 דירוג חודשי — נקודות מדליות</div>
+            <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:12 }}>📊 דירוג חודשי — נקודות מדליות</div>
             <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)", marginBottom:10 }}>🥇=3 נק' · 🥈=2 נק' · 🥉=1 נק'</div>
             {monthlyBoard.length === 0 && <div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 19px)", padding:"16px 0" }}>אין עדיין תוצאות החודש</div>}
             {monthlyBoard.map(function(r, i) {
@@ -1269,7 +1275,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                   <span style={{ fontSize:"clamp(18px, 13vw, 24px)", minWidth:28 }}>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : ((i + 1) + ".")}</span>
                   <span style={{ flex:1, color:isMe ? "#c4b5fd" : "#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 19px)" }}>{r.family_name}{isMe ? " (אתם)" : ""}</span>
                   <span style={{ color:"#94a3b8", fontSize:"clamp(12px, 9vw, 15px)", fontFamily:"'Varela Round',sans-serif" }}>{r.gold_medals ? ("🥇" + r.gold_medals + " ") : ""}{r.silver_medals ? ("🥈" + r.silver_medals + " ") : ""}{r.bronze_medals ? ("🥉" + r.bronze_medals) : ""}</span>
-                  <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.monthly_medal_points}נק'</span>
+                  <span style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.monthly_medal_points}נק'</span>
                 </div>
               );
             })}
@@ -1321,7 +1327,7 @@ function TopicPicker({ onStart }) {
               style={{ width:"100%", background:"transparent", border:"none", borderBottom:i<results.length-1?"1px solid rgba(255,255,255,.05)":"none", padding:"10px 12px", cursor:"pointer", textAlign:"right", transition:"background .15s" }}
               onMouseEnter={e=>e.currentTarget.style.background="rgba(167,139,250,.1)"}
               onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(15px, 11vw, 19px)" }}>{r.title}</div>
+              <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(15px, 11vw, 19px)" }}>{r.title}</div>
               {r.snippet && <div style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)", marginTop:2 }}>{r.snippet}...</div>}
             </button>
           ))}
@@ -1366,7 +1372,7 @@ function EditFamilyScreen({ family, onSave, onBack, onDelete }) {
     <div style={{ animation:"slideIn .4s ease" }}>
       <button onClick={onBack} style={{ background:"none", border:"none", color:"#64748b", cursor:"pointer", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:12, padding:0 }}>← חזרה</button>
       <div style={C.card}>
-        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:14 }}>✏️ עדכון הקבוצה</div>
+        <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:14 }}>✏️ עדכון הקבוצה</div>
         <div style={{ marginBottom:14 }}>
           <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 11vw, 18px)", marginBottom:6 }}>שם הקבוצה</div>
           <input value={familyName} onChange={e=>setFamilyName(e.target.value)} placeholder="שם הקבוצה"
@@ -1412,7 +1418,7 @@ function LoadingScreen({ msg, emoji }) {
   return (
     <div style={{ textAlign:"center", padding:"80px 20px", animation:"slideIn .4s ease" }}>
       <div style={{ fontSize:"clamp(72px, 33vw, 86px)", marginBottom:16, animation:"spin 2s linear infinite", display:"inline-block" }}>{emoji}</div>
-      <h2 style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(26px, 16vw, 32px)", marginBottom:8 }}>{msg}</h2>
+      <h2 style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(26px, 16vw, 32px)", marginBottom:8 }}>{msg}</h2>
       <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)" }}>מכין חידון מותאם לכל אחד...</p>
       <div style={{ display:"flex", gap:10, justifyContent:"center", marginTop:24 }}>
         {[0,1,2,3].map(i => <div key={i} style={{ width:10, height:10, borderRadius:"50%", background:"#a78bfa", animation:("pulse 1.4s ease " + (i*.3) + "s infinite") }} />)}
@@ -1454,13 +1460,14 @@ function QuizScreen({ quizData, members, onFinish }) {
   if (finished) return (
     <div style={{ textAlign:"center", padding:"80px 20px" }}>
       <div style={{ fontSize:"clamp(56px, 28vw, 67px)", animation:"spin 2s linear infinite", display:"inline-block" }}>🏆</div>
-      <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 28px)", marginTop:16 }}>מחשב תוצאות...</div>
+      <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", marginTop:16 }}>מחשב תוצאות...</div>
     </div>
   );
   const { member, question } = turns[ti];
   const g = ag(member.age);
   const progress = Math.round(ti / turns.length * 100);
   const labels = ["א","ב","ג","ד"];
+  const labelColors = ["#ef4444","#3b82f6","#22c55e","#f59e0b"];
 
   const answer = (i) => {
     if (done) return;
@@ -1500,7 +1507,7 @@ function QuizScreen({ quizData, members, onFinish }) {
           {members.map(m => { const mg=ag(m.age); const s=scores[m.name]; return (
             <div key={m.name} style={{ display:"flex", alignItems:"center", gap:4, opacity:m.name===member.name?1:.4, transition:"opacity .3s", background:m.name===member.name?(mg.color + "22"):"transparent", borderRadius:20, padding:"2px 8px 2px 4px", border:m.name===member.name?("1px solid " + mg.color + "44"):"1px solid transparent" }}>
               <span style={{ fontSize:"clamp(17px, 12vw, 24px)" }}>{mg.emoji}</span>
-              <span style={{ color:mg.color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(15px, 11vw, 21px)" }}>{s.points||0}נק'</span>
+              <span style={{ color:mg.color, fontFamily:"'Rubik',sans-serif", fontSize:"clamp(15px, 11vw, 21px)" }}>{s.points||0}נק'</span>
             </div>
           ); })}
         </div>
@@ -1510,7 +1517,7 @@ function QuizScreen({ quizData, members, onFinish }) {
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
           <div style={{ width:42, height:42, borderRadius:"50%", background:(g.color + "22"), border:("2.5px solid " + g.color), display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(20px, 14vw, 26px)", flexShrink:0, boxShadow:!done?("0 0 16px " + g.color + "66"):"none", transition:"box-shadow .3s" }}>{g.emoji}</div>
           <div style={{ flex:1 }}>
-            <div style={{ color:g.color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)" }}>תור של {member.name}</div>
+            <div style={{ color:g.color, fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 25px)" }}>תור של {member.name}</div>
             <div style={{ color:"#334155", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif" }}>{g.label}{g.bonus?" · ⚡ בונוס מהירות":""}</div>
           </div>
           <div style={{ fontSize:"clamp(28px, 17vw, 35px)" }}>{question.emoji||"❓"}</div>
@@ -1529,7 +1536,7 @@ function QuizScreen({ quizData, members, onFinish }) {
                 style={{ background:bg, border:("2px solid " + brd), borderRadius:14, padding:member.age<=5?"16px 10px":"11px 12px", cursor:done?"default":"pointer", display:"flex", alignItems:"center", gap:8, transition:"all .2s", fontFamily:"'Varela Round',sans-serif", color:"#fff", fontSize:member.age<=5?16:14, textAlign:"right", animation:done&&i===question.correct_index?"correctPulse .5s ease":done&&i===sel&&i!==question.correct_index?"shake .3s ease":"" }}
                 onMouseEnter={e=>{ if(!done){e.currentTarget.style.transform="scale(1.03)";e.currentTarget.style.background="rgba(255,255,255,.12)"}}}
                 onMouseLeave={e=>{ if(!done){e.currentTarget.style.transform="scale(1)";e.currentTarget.style.background=bg}}}>
-                <span style={{ background:(g.color + "22"), color:g.color, borderRadius:"50%", width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(15px, 11vw, 21px)", fontWeight:"bold", flexShrink:0 }}>{labels[i]}</span>
+                <span style={{ background:(labelColors[i] + "22"), color:labelColors[i], borderRadius:"50%", width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(15px, 11vw, 21px)", fontWeight:"bold", flexShrink:0 }}>{labels[i]}</span>
                 <span style={{ flex:1 }}>{ans}</span>
                 {done&&i===question.correct_index&&<span>✅</span>}
                 {done&&i===sel&&i!==question.correct_index&&<span>❌</span>}
@@ -1540,7 +1547,7 @@ function QuizScreen({ quizData, members, onFinish }) {
 
         {done && (
           <div style={{ marginTop:12, animation:"slideIn .3s ease" }}>
-            <div style={{ textAlign:"center", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 29px)", color:sel===question.correct_index?"#4ade80":"#f87171", marginBottom:8 }}>{msg}</div>
+            <div style={{ textAlign:"center", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 29px)", color:sel===question.correct_index?"#4ade80":"#f87171", marginBottom:8 }}>{msg}</div>
             
           </div>
         )}
@@ -1569,16 +1576,16 @@ function ShareScreen({ code, topic, familyName, pct, onContinue }) {
   return (
     <div style={{ ...C.card, textAlign:"center", animation:"slideIn .4s ease" }}>
       <div style={{ fontSize:"clamp(52px, 26vw, 62px)", marginBottom:8 }}>🎉</div>
-      <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 6px" }}>שלחו את האתגר!</h2>
+      <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 6px" }}>שלחו את האתגר!</h2>
       <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", margin:"0 0 20px" }}>הזמינו משפחה אחרת לאותו חידון</p>
 
       <div style={{ background:"rgba(251,191,36,.1)", border:"1px solid rgba(251,191,36,.25)", borderRadius:16, padding:"16px 20px", marginBottom:16 }}>
         <div style={{ color:"#64748b", fontSize:"clamp(16px, 12vw, 22px)", fontFamily:"'Varela Round',sans-serif", marginBottom:4 }}>קוד החידון</div>
-        <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(56px, 28vw, 67px)", letterSpacing:10, lineHeight:1 }}>{code}</div>
+        <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(56px, 28vw, 67px)", letterSpacing:10, lineHeight:1 }}>{code}</div>
       </div>
 
       <a href={"https://wa.me/?text=" + waText} target="_blank" rel="noreferrer"
-        style={{ display:"block", padding:"15px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", textDecoration:"none", marginBottom:8, boxShadow:"0 4px 20px #16a34a55" }}>
+        style={{ display:"block", padding:"15px", background:"linear-gradient(135deg,#16a34a,#15803d)", borderRadius:18, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", textDecoration:"none", marginBottom:8, boxShadow:"0 4px 20px #16a34a55" }}>
         📱 שליחה בוואטסאפ
       </a>
       <button onClick={copy} style={{ ...C.btnS, color:copied?"#4ade80":"#94a3b8" }}>{copied?"✅ הועתק!":"📋 העתק הודעה"}</button>
@@ -1624,12 +1631,12 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
       <ConfettiOnce />
       <div style={{ ...C.card, textAlign:"center", marginBottom:14 }}>
         <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:8, animation:"bounce 1s ease infinite" }}>{emoji}</div>
-        <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(26px, 16vw, 32px)", margin:"0 0 4px" }}>{msg}</h2>
-        {beat && <div style={{ color:"#4ade80", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:6 }}>🎯 ניצחתם! ({pct}% vs {rivalPct}%)</div>}
+        <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(26px, 16vw, 32px)", margin:"0 0 4px" }}>{msg}</h2>
+        {beat && <div style={{ color:"#4ade80", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:6 }}>🎯 ניצחתם! ({pct}% vs {rivalPct}%)</div>}
         <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", margin:"0 0 6px", fontSize:"clamp(15px, 11vw, 20px)" }}>{sub}</p>
         <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", margin:"0 0 14px", fontSize:"clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
         <div style={{ background:"rgba(255,255,255,.08)", borderRadius:16, padding:"14px 24px", display:"inline-block" }}>
-          <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{pct}%</div>
+          <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{pct}%</div>
           {myRank>0&&<div style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", marginTop:4 }}>מקום {myRank} מבין {board.length} משפחות</div>}
         </div>
         {badges.length > 0 && (
@@ -1637,7 +1644,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
             {badges.map((b,i) => (
               <div key={i} style={{ background:"rgba(251,191,36,.12)", border:"1px solid rgba(251,191,36,.3)", borderRadius:20, padding:"5px 14px", display:"flex", alignItems:"center", gap:5 }}>
                 <span style={{ fontSize:"clamp(16px, 12vw, 20px)" }}>{b.emoji}</span>
-                <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 11vw, 17px)" }}>{b.label}</span>
+                <span style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 11vw, 17px)" }}>{b.label}</span>
               </div>
             ))}
           </div>
@@ -1645,7 +1652,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
       </div>
 
       <div style={C.card}>
-        <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(19px, 14vw, 25px)", marginBottom:10 }}>🎖️ גיבורי המשפחה</div>
+        <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(19px, 14vw, 25px)", marginBottom:10 }}>🎖️ גיבורי המשפחה</div>
         {[...members].sort((a,b) => {
           const pa = scores[a.name]; const pb = scores[b.name];
           const pctA = pa?.total ? pa.correct/pa.total : 0;
@@ -1658,11 +1665,11 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
               <span style={{ fontSize:"clamp(20px, 14vw, 26px)" }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"🎖️"}</span>
               <div style={{ width:36, height:36, borderRadius:"50%", background:(g.color + "22"), border:("2px solid " + g.color), display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)" }}>{g.emoji}</div>
               <div style={{ flex:1 }}>
-                <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 22px)" }}>{m.name}</div>
+                <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 22px)" }}>{m.name}</div>
                 <div style={{ color:"#64748b", fontSize:"clamp(13px, 10vw, 20px)", fontFamily:"'Varela Round',sans-serif" }}>{s.correct}/{s.total} נכון · {p}%{g.bonus?" · ⚡ בונוס זמן":""}</div>
               </div>
               <div style={{ textAlign:"center" }}>
-                <div style={{ color:g.color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(26px, 16vw, 32px)" }}>{s.points||0}</div>
+                <div style={{ color:g.color, fontFamily:"'Rubik',sans-serif", fontSize:"clamp(26px, 16vw, 32px)" }}>{s.points||0}</div>
                 <div style={{ color:"#475569", fontSize:"clamp(12px, 9vw, 18px)", fontFamily:"'Varela Round',sans-serif" }}>נקודות</div>
               </div>
             </div>
@@ -1674,7 +1681,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
         <div style={C.card}>
           <div style={{ display:"flex", gap:0, marginBottom:10, background:"rgba(255,255,255,.06)", borderRadius:12, padding:3 }}>
             {[{k:"challenge",l:"⚔️ אתגר זה"},{k:"mpts",l:"🏆 חודשי"},{k:"mavg",l:"⭐ איכות"}].map(({k,l}) => (
-              <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:"7px", border:"none", borderRadius:10, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(14px, 11vw, 21px)", background:tab===k?"rgba(124,58,237,.35)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
+              <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:"7px", border:"none", borderRadius:10, cursor:"pointer", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 11vw, 21px)", background:tab===k?"rgba(124,58,237,.35)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
             ))}
           </div>
           {(() => {
@@ -1696,7 +1703,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
                     <div style={{ color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)" }}>{r.family_name}{isMe?" ← אתם":""}</div>
                     {getSub(r)&&<div style={{ color:"#475569", fontSize:"clamp(12px, 9vw, 18px)" }}>{getSub(r)}</div>}
                   </div>
-                  <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)" }}>{getVal(r)}</span>
+                  <span style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 24px)" }}>{getVal(r)}</span>
                 </div>
               );
             });
@@ -1708,7 +1715,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
       {beatenBy && onRematch && (
         <div style={{ ...C.card, background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.25)", textAlign:"center", marginBottom:14 }}>
           <div style={{ fontSize:"clamp(32px, 19vw, 40px)", marginBottom:6 }}>⚔️</div>
-          <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", marginBottom:4 }}>
+          <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", marginBottom:4 }}>
             משפחת {beatenBy.name} עקפה אותכם!
           </div>
           <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 21px)", marginBottom:12 }}>
@@ -1994,7 +2001,7 @@ const handleFinish = async (s, totalSeconds) => {
           {screen==="alreadyPlayed"&& (
             <div style={{ ...C.card, textAlign:"center", animation:"slideIn .4s ease" }}>
               <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:12 }}>🔄</div>
-              <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 8px" }}>כבר שיחקתם את האתגר הזה!</h2>
+              <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 8px" }}>כבר שיחקתם את האתגר הזה!</h2>
               <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 20px)", margin:"0 0 20px" }}>
                 רוצים לשפר את הציון? תקבלו שאלות חדשות והציון יתעדכן!
               </p>
@@ -2015,14 +2022,14 @@ const handleFinish = async (s, totalSeconds) => {
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1003, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease", overflowY:"auto" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.3)", borderRadius:28, padding:"clamp(20px,4vw,32px)", maxWidth:420, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(48px, 24vw, 56px)", marginBottom:8 }}>🎮</div>
-            <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 6px" }}>נגמרו החידונים להיום!</h2>
+            <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 6px" }}>נגמרו החידונים להיום!</h2>
             <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", margin:"0 0 4px" }}>השתמשתם ב-{DAILY_LIMIT} חידונים. מחר תקבלו עוד!</p>
             <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)", margin:"0 0 16px" }}>או שדרגו ושחקו ללא הגבלה</p>
 
             <div style={{ background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.3)", borderRadius:16, padding:14, marginBottom:10, textAlign:"right" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)" }}>₪9.90/חודש</div>
-                <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>👨‍👩‍👧‍👦 משפחתי</div>
+                <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)" }}>₪9.90/חודש</div>
+                <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>👨‍👩‍👧‍👦 משפחתי</div>
               </div>
               <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
                 <div>✅ חידונים ללא הגבלה</div>
@@ -2031,10 +2038,10 @@ const handleFinish = async (s, totalSeconds) => {
             </div>
 
             <div style={{ background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.3)", borderRadius:16, padding:14, marginBottom:16, textAlign:"right", position:"relative" }}>
-              <div style={{ position:"absolute", top:-10, left:"50%", transform:"translateX(-50%)", background:"#fbbf24", color:"#1a1540", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(11px, 8vw, 13px)", padding:"2px 12px", borderRadius:20 }}>מומלץ למורים</div>
+              <div style={{ position:"absolute", top:-10, left:"50%", transform:"translateX(-50%)", background:"#fbbf24", color:"#1a1540", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(11px, 8vw, 13px)", padding:"2px 12px", borderRadius:20 }}>מומלץ למורים</div>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8, marginTop:4 }}>
-                <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)" }}>₪29.90/חודש</div>
-                <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>📚 מורים</div>
+                <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)" }}>₪29.90/חודש</div>
+                <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>📚 מורים</div>
               </div>
               <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
                 <div>✅ חידונים ללא הגבלה</div>
@@ -2044,7 +2051,7 @@ const handleFinish = async (s, totalSeconds) => {
               </div>
             </div>
 
-            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"13px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8, opacity:0.5 }}>🔜 בקרוב!</button>
+            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"13px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8, opacity:0.5 }}>🔜 בקרוב!</button>
             <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"8px", background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", cursor:"pointer" }}>חזרה — נשחק מחר 😊</button>
           </div>
         </div>
@@ -2053,9 +2060,9 @@ const handleFinish = async (s, totalSeconds) => {
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"1px solid rgba(251,191,36,.3)", borderRadius:24, padding:"clamp(20px,4vw,32px)", maxWidth:380, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(48px, 24vw, 56px)", marginBottom:12 }}>📄</div>
-            <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 8px" }}>מאמר קצר</h2>
+            <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 8px" }}>מאמר קצר</h2>
             <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", margin:"0 0 20px", lineHeight:1.6 }}>הערך על {shortArticleConfirm.topic} קצר יחסית — ייתכנו חזרות על שאלות.</p>
-            <button onClick={function() { shortArticleConfirm.resolve(true); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🎮 בואו נשחק!</button>
+            <button onClick={function() { shortArticleConfirm.resolve(true); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🎮 בואו נשחק!</button>
             <button onClick={function() { shortArticleConfirm.resolve(false); }} style={{ width:"100%", padding:"10px", background:"none", border:"1px solid rgba(255,255,255,0.12)", borderRadius:16, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>🔄 בחירת נושא אחר</button>
           </div>
         </div>
@@ -2064,11 +2071,11 @@ const handleFinish = async (s, totalSeconds) => {
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1001, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(64px, 30vw, 80px)", marginBottom:8, animation:"bounce 1.5s ease infinite" }}>🏆</div>
-            <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(24px, 16vw, 32px)", margin:"0 0 6px" }}>מנצחי השבוע!</h2>
-            <p style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 4px" }}>משפחת {weeklyWinner.family_name}</p>
+            <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(24px, 16vw, 32px)", margin:"0 0 6px" }}>מנצחי השבוע!</h2>
+            <p style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 4px" }}>משפחת {weeklyWinner.family_name}</p>
             <p style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 4px" }}>{weeklyWinner.points} נקודות · {weeklyWinner.games_played} משחקים</p>
             <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>🎉 כל הכבוד! הלוח התאפס — מתחילים שבוע חדש</p>
-            <button onClick={function() { markWinnerAnnounced(weeklyWinner.id); setWeeklyWinner(null); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#fbbf24,#f59e0b)", border:"none", borderRadius:16, color:"#1a1540", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #fbbf2455" }}>🎮 בואו נתחיל שבוע חדש!</button>
+            <button onClick={function() { markWinnerAnnounced(weeklyWinner.id); setWeeklyWinner(null); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#fbbf24,#f59e0b)", border:"none", borderRadius:16, color:"#1a1540", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #fbbf2455" }}>🎮 בואו נתחיל שבוע חדש!</button>
           </div>
         </div>
       )}
@@ -2076,8 +2083,8 @@ const handleFinish = async (s, totalSeconds) => {
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1002, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(167,139,250,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(48px, 24vw, 60px)", marginBottom:8 }}>⚔️</div>
-            <h2 style={{ color:"#c4b5fd", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 4px" }}>אתגר נסגר!</h2>
-            <p style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 24px)", margin:"0 0 16px" }}>{closedResults.topic}</p>
+            <h2 style={{ color:"#c4b5fd", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 4px" }}>אתגר נסגר!</h2>
+            <p style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 24px)", margin:"0 0 16px" }}>{closedResults.topic}</p>
             {closedResults.results.map(function(r) {
               var medal = r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉";
               var color = r.rank === 1 ? "#fbbf24" : r.rank === 2 ? "#94a3b8" : "#f59e0b";
@@ -2085,12 +2092,12 @@ const handleFinish = async (s, totalSeconds) => {
               return (
                 <div key={r.rank} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", marginBottom:6, background:isMe ? "rgba(167,139,250,.15)" : "rgba(255,255,255,.05)", border:("1px solid " + (isMe ? "rgba(167,139,250,.3)" : "rgba(255,255,255,.08)")), borderRadius:14 }}>
                   <span style={{ fontSize:"clamp(24px, 16vw, 30px)" }}>{medal}</span>
-                  <span style={{ flex:1, color:color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)", textAlign:"right" }}>{"משפחת " + r.family_name}</span>
+                  <span style={{ flex:1, color:color, fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", textAlign:"right" }}>{"משפחת " + r.family_name}</span>
                   <span style={{ color:"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.family_pct + "%"}</span>
                 </div>
               );
             })}
-            <button onClick={function() { LS.set("seen_result_" + closedResults.code, true); setClosedResults(null); }} style={{ width:"100%", marginTop:14, padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55" }}>👍 סגור</button>
+            <button onClick={function() { LS.set("seen_result_" + closedResults.code, true); setClosedResults(null); }} style={{ width:"100%", marginTop:14, padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55" }}>👍 סגור</button>
           </div>
         </div>
       )}
