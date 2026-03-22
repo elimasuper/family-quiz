@@ -131,6 +131,26 @@ const addQHistory = (topic, questions) => {
 const makeCode = function() { return String(Math.floor(100000 + Math.random() * 900000)); };
 const todayStr = () => new Date().toISOString().split("T")[0];
 
+// ─── DAILY QUIZ LIMIT ────────────────────────────────────────────────────────
+const DAILY_LIMIT = 3;
+const DAILY_KEY = "fq_daily";
+function getDailyCount() {
+  var d = LS.get(DAILY_KEY);
+  if (!d || d.date !== todayStr()) return 0;
+  return d.count || 0;
+}
+function incDailyCount() {
+  var d = LS.get(DAILY_KEY);
+  if (!d || d.date !== todayStr()) { LS.set(DAILY_KEY, { date: todayStr(), count: 1 }); return 1; }
+  d.count = (d.count || 0) + 1;
+  LS.set(DAILY_KEY, d);
+  return d.count;
+}
+function isPremium() {
+  // TODO: בדוק מנוי אמיתי מ-DB. כרגע — תמיד false
+  return LS.get("fq_premium") === true;
+}
+
 async function registerFamily(name, pin, members, setOnline) {
   return sbSafe(async () => {
     const ex = await sbFetch(("families?name=eq." + encodeURIComponent(name) + "&select=name,pin"));
@@ -1818,11 +1838,24 @@ function AppInner() {
     return data;
   };
 
+  const [showUpsell, setShowUpsell] = useState(false);
+
+  const checkDailyLimit = function() {
+    if (isPremium()) return true;
+    if (getDailyCount() >= DAILY_LIMIT) {
+      setShowUpsell(true);
+      return false;
+    }
+    return true;
+  };
+
   const handlePlay = async (t) => {
+    if (!checkDailyLimit()) return;
     setTopic(t); setIsChallenger(false); setCreatorPct(null);
     const stop = startLoad();
     try {
       const validated = await buildQuiz(t, family.members);
+      incDailyCount();
       stop(); setQuizData(validated); setScreen("quiz");
     } catch(e) {
       stop();
@@ -1832,6 +1865,7 @@ function AppInner() {
   };
 
   const handleJoin = async (c) => {
+    if (!checkDailyLimit()) return;
     const stop = startLoad();
     try {
       const room = await loadQuizByCode(c, setSbOnline);
@@ -1841,6 +1875,7 @@ function AppInner() {
         stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct); setScreen("alreadyPlayed"); return;
       }
       const validated = await buildQuiz(room.topic, family.members);
+      incDailyCount();
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
       setQuizData(validated); setIsChallenger(true); setScreen("quiz");
       window.history.replaceState({}, "", window.location.pathname);
@@ -1879,17 +1914,21 @@ const handleFinish = async (s, totalSeconds) => {
 };
 
   const handleSameTopic = async () => {
+    if (!checkDailyLimit()) return;
     const stop = startLoad();
     try {
       const validated = await buildQuiz(topic, family.members);
+      incDailyCount();
       stop(); setQuizData(validated); setIsChallenger(false); setCreatorPct(null); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
 
   const handleRematch = async () => {
+    if (!checkDailyLimit()) return;
     const stop = startLoad();
     try {
       const validated = await buildQuiz(topic, family.members);
+      incDailyCount();
       const newCode = makeCode();
       setCode(newCode);
       stop(); setQuizData(validated); setIsChallenger(false); setBeatenBy(null); setScreen("quiz");
@@ -1898,9 +1937,11 @@ const handleFinish = async (s, totalSeconds) => {
 
   // שחק שוב את אותו אתגר — שאלות חדשות, עדכון ציון קיים
   const handleRetryChallenge = async () => {
+    if (!checkDailyLimit()) return;
     const stop = startLoad();
     try {
       const validated = await buildQuiz(blockedTopic || topic, family.members);
+      incDailyCount();
       stop(); setTopic(blockedTopic || topic); setQuizData(validated); setIsChallenger(true); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
@@ -1964,6 +2005,25 @@ const handleFinish = async (s, totalSeconds) => {
 
       <InstallBanner />
       {showPushModal && family && <PushModal familyName={family.name} onDone={function() { setShowPushModal(false); }} />}
+      {showUpsell && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1003, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease" }}>
+          <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.3)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
+            <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:8 }}>🎮</div>
+            <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 8px" }}>נגמרו החידונים להיום!</h2>
+            <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 19px)", margin:"0 0 4px", lineHeight:1.6 }}>השתמשתם ב-{DAILY_LIMIT} חידונים. מחר תקבלו עוד!</p>
+            <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>או שדרגו ושחקו ללא הגבלה</p>
+            <div style={{ background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.2)", borderRadius:16, padding:16, marginBottom:16, textAlign:"right" }}>
+              <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)", marginBottom:8 }}>✨ Dare2Know פרימיום</div>
+              <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", lineHeight:1.8 }}>
+                {"✅ חידונים ללא הגבלה\n✅ ללא פרסומות\n✅ העלאת חומר לימוד (בקרוב)".split("\n").map(function(line, i) { return React.createElement("div", { key: i }, line); })}
+              </div>
+              <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", marginTop:8 }}>₪9.90/חודש</div>
+            </div>
+            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8, opacity:0.5 }}>🔜 בקרוב!</button>
+            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"10px", background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>חזרה — נשחק מחר 😊</button>
+          </div>
+        </div>
+      )}
       {shortArticleConfirm && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"1px solid rgba(251,191,36,.3)", borderRadius:24, padding:"clamp(20px,4vw,32px)", maxWidth:380, width:"100%", textAlign:"center" }}>
