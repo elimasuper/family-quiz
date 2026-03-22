@@ -2012,23 +2012,40 @@ const handleFinish = async (s, totalSeconds) => {
       <InstallBanner />
       {showPushModal && family && <PushModal familyName={family.name} onDone={function() { setShowPushModal(false); }} />}
       {showUpsell && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1003, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease" }}>
-          <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.3)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
-            <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:8 }}>🎮</div>
-            <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 8px" }}>נגמרו החידונים להיום!</h2>
-            <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 19px)", margin:"0 0 4px", lineHeight:1.6 }}>השתמשתם ב-{DAILY_LIMIT} חידונים. מחר תקבלו עוד!</p>
-            <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>או שדרגו ושחקו ללא הגבלה</p>
-            <div style={{ background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.2)", borderRadius:16, padding:16, marginBottom:16, textAlign:"right" }}>
-              <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)", marginBottom:8 }}>✨ Dare2Know פרימיום</div>
-              <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", lineHeight:1.8 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1003, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease", overflowY:"auto" }}>
+          <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.3)", borderRadius:28, padding:"clamp(20px,4vw,32px)", maxWidth:420, width:"100%", textAlign:"center" }}>
+            <div style={{ fontSize:"clamp(48px, 24vw, 56px)", marginBottom:8 }}>🎮</div>
+            <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 6px" }}>נגמרו החידונים להיום!</h2>
+            <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", margin:"0 0 4px" }}>השתמשתם ב-{DAILY_LIMIT} חידונים. מחר תקבלו עוד!</p>
+            <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)", margin:"0 0 16px" }}>או שדרגו ושחקו ללא הגבלה</p>
+
+            <div style={{ background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.3)", borderRadius:16, padding:14, marginBottom:10, textAlign:"right" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)" }}>₪9.90/חודש</div>
+                <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>👨‍👩‍👧‍👦 משפחתי</div>
+              </div>
+              <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
                 <div>✅ חידונים ללא הגבלה</div>
                 <div>✅ ללא פרסומות</div>
-                <div>✅ העלאת חומר לימוד (בקרוב)</div>
               </div>
-              <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", marginTop:8 }}>₪9.90/חודש</div>
             </div>
-            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8, opacity:0.5 }}>🔜 בקרוב!</button>
-            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"10px", background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>חזרה — נשחק מחר 😊</button>
+
+            <div style={{ background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.3)", borderRadius:16, padding:14, marginBottom:16, textAlign:"right", position:"relative" }}>
+              <div style={{ position:"absolute", top:-10, left:"50%", transform:"translateX(-50%)", background:"#fbbf24", color:"#1a1540", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(11px, 8vw, 13px)", padding:"2px 12px", borderRadius:20 }}>מומלץ למורים</div>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8, marginTop:4 }}>
+                <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)" }}>₪29.90/חודש</div>
+                <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>📚 מורים</div>
+              </div>
+              <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
+                <div>✅ חידונים ללא הגבלה</div>
+                <div>✅ ללא פרסומות</div>
+                <div>✅ העלאת חומר לימוד</div>
+                <div>✅ עד 500 חידוני תלמידים/חודש</div>
+              </div>
+            </div>
+
+            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"13px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8, opacity:0.5 }}>🔜 בקרוב!</button>
+            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"8px", background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", cursor:"pointer" }}>חזרה — נשחק מחר 😊</button>
           </div>
         </div>
       )}
