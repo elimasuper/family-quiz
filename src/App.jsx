@@ -272,7 +272,7 @@ function calcBadges(scores, members, isChampion=false, streak=0) {
   if (pct === 100) badges.push({ emoji:"🎯", label:"מושלם!" });
   if (pct >= 90)  badges.push({ emoji:"⭐", label:"מצוין" });
   if (isChampion) badges.push({ emoji:"👑", label:"אלוף" });
-  if (streak >= 7) badges.push({ emoji:"🔥", label:"רצף " + streak + " ימים" });
+  if (streak >= 5) badges.push({ emoji:"🔥", label:"רצף " + streak + " ימים" });
   else if (streak >= 3) badges.push({ emoji:"🔥", label:"רצף " + streak });
   const timerMembers = validMembers.filter(m => ag(m.age).timer > 0);
   if (timerMembers.length) {
