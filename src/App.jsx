@@ -492,7 +492,7 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
     + "\n\nרמה: " + ageRule
     + "\nכמות שאלות: " + totalQuestions
     + "\n\nחוקים:"
-    + "\n1. שאלות מהטקסט בלבד — אסור להמציא עובדות."
+    + "\n1. שאלות מהטקסט בלבד — אסור להמציא עובדות, מילים, שמות, או מושגים שלא מופיעים בטקסט. כל מילה בשאלה ובתשובה הנכונה חייבת להתבסס על מה שכתוב בטקסט."
       + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים. לפני שאתה כותב שאלה, ודא שלא דומה לאף שאלה קודמת — לא אותו נושא, עובדה או מושג."
     + "\n2b. אם כבר נוצרו שאלות בקריאות אחרות לאותה קבוצת גיל, חובה להתרחק מהן: לא אותו פרט, לא אותו מושג, לא אותה עובדה בניסוח אחר."
     + "\n3. חשוב מאוד: הטקסט מכיל מספר נושאים וחלקים — חובה לשאול שאלות מכל החלקים! אל תתמקד רק בחלק הראשון. אם יש בטקסט כמה נושאים שונים (למשל: כוסות ובקבוקים) — חובה לשאול שאלות גם על הנושא השני."
@@ -605,26 +605,43 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
 
   // סנן כפילויות בתוך כל group בנפרד
   var topicWords = (topic || "").replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 1; });
+  var getQWords = function(q) {
+    var text = q.question + " " + q.answers[q.correct_index];
+    return text.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 2 && topicWords.indexOf(w) === -1; });
+  };
+  var isDupe = function(q, existing) {
+    var qWords = getQWords(q);
+    for (var j = 0; j < existing.length; j++) {
+      if (q.answers[q.correct_index] === existing[j].answers[existing[j].correct_index]) return true;
+      var kWords = getQWords(existing[j]);
+      var shared = 0;
+      qWords.forEach(function(w) { if (kWords.indexOf(w) !== -1) shared++; });
+      if (qWords.length > 0 && shared / qWords.length >= 0.55) return true;
+    }
+    return false;
+  };
+
+  // שלב 1: סנן בתוך כל group
   Object.keys(groupResults).forEach(function(k) {
-    var qs = groupResults[k];
     var keep = [];
-    qs.forEach(function(q) {
-      var dominated = false;
-      var qText = q.question + " " + q.answers[q.correct_index];
-      var qWords = qText.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 2 && topicWords.indexOf(w) === -1; });
-      for (var j = 0; j < keep.length; j++) {
-        var kText = keep[j].question + " " + keep[j].answers[keep[j].correct_index];
-        var kWords = kText.replace(/[?.!,،؟]/g, "").split(/\s+/).filter(function(w) { return w.length > 2 && topicWords.indexOf(w) === -1; });
-        // תשובה זהה = כפילות
-        if (q.answers[q.correct_index] === keep[j].answers[keep[j].correct_index]) { dominated = true; break; }
-        // 60%+ overlap מילים = כפילות
-        var shared = 0;
-        qWords.forEach(function(w) { if (kWords.indexOf(w) !== -1) shared++; });
-        if (qWords.length > 0 && shared / qWords.length >= 0.6) { dominated = true; break; }
-      }
-      if (!dominated) keep.push(q);
+    groupResults[k].forEach(function(q) {
+      if (!isDupe(q, keep)) keep.push(q);
     });
     groupResults[k] = keep;
+  });
+
+  // שלב 2: סנן בין groups — הסר שאלות שזהות לשאלות מ-group אחר
+  var allKept = [];
+  var groupOrder = Object.keys(groupResults);
+  groupOrder.forEach(function(k) {
+    var filtered = [];
+    groupResults[k].forEach(function(q) {
+      if (!isDupe(q, allKept)) {
+        filtered.push(q);
+        allKept.push(q);
+      }
+    });
+    groupResults[k] = filtered;
   });
 
   // חלק round-robin — כל משתתף מקבל שאלה בתור
