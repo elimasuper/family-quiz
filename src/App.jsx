@@ -358,7 +358,7 @@ async function fetchWiki(topic) {
     for (var i = 0; i < related.length && direct.text.length < MIN_RICH; i++) {
       var extra = await get(related[i]);
       if (extra) {
-        direct.text = direct.text + "\n\n--- " + extra.title + " ---\n" + extra.text.slice(0, 2000);
+        direct.text = direct.text + "\n\n" + extra.title + "\n" + extra.text.slice(0, 2000);
       }
     }
   }
@@ -491,22 +491,18 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   var positions = [];
   var numChunksNeeded = Math.min(8, Math.max(4, members.length * 2));
 
-  // מצא את תחילת כל סקשיין מועשר (מסומן ב"---")
-  var enrichedStarts = [];
-  var dashIdx = 0;
-  while (true) {
-    dashIdx = wikiText.indexOf("\n\n--- ", dashIdx);
-    if (dashIdx === -1) break;
-    enrichedStarts.push(dashIdx + 5);
-    dashIdx += 5;
+  // הבטח chunks גם מהחלק השני של הטקסט (שם נמצאת ההעשרה)
+  if (len > chunkSize * 3) {
+    var secondHalfStart = Math.floor(len * 0.5);
+    var thirdStart = Math.floor(len * 0.7);
+    [secondHalfStart, thirdStart].forEach(function(pos) {
+      if (positions.length < numChunksNeeded && pos + chunkSize <= len) {
+        if (positions.every(function(p) { return Math.abs(p - pos) > chunkSize; })) {
+          positions.push(pos);
+        }
+      }
+    });
   }
-
-  // הבטח chunk אחד מכל סקשיין מועשר
-  enrichedStarts.forEach(function(start) {
-    if (positions.length < numChunksNeeded && start + chunkSize <= len) {
-      positions.push(start);
-    }
-  });
 
   // השלם עם chunks רנדומליים מהטקסט המלא
   if (len <= chunkSize * 2) {
@@ -1656,11 +1652,19 @@ function AppInner() {
   };
 
   // ─── שיתוף לוגיקה: יצירת שאלות מויקיפדיה ───
+  const [shortArticleConfirm, setShortArticleConfirm] = useState(null); // {topic, resolve}
+
   const buildQuiz = async (t, mems) => {
     const wiki = await fetchWiki(t);
     if (wiki.shortArticle) {
-      setError("📄 המאמר קצר — ייתכנו חזרות");
-      setTimeout(function() { setError(""); }, 4000);
+      // שאל את המשתמש אם להמשיך
+      var shouldContinue = await new Promise(function(resolve) {
+        setShortArticleConfirm({ topic: t, resolve: resolve });
+      });
+      setShortArticleConfirm(null);
+      if (!shouldContinue) {
+        throw new Error("__cancel__");
+      }
     }
     const seed = Math.random().toString(36).slice(2,8);
     const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
@@ -1673,7 +1677,11 @@ function AppInner() {
     try {
       const validated = await buildQuiz(t, family.members);
       stop(); setQuizData(validated); setScreen("quiz");
-    } catch(e) { stop(); setError(e.message||"שגיאה"); setScreen("home"); }
+    } catch(e) {
+      stop();
+      if (e.message === "__cancel__") { setScreen("home"); return; }
+      setError(e.message || "שגיאה"); setScreen("home");
+    }
   };
 
   const handleJoin = async (c) => {
@@ -1815,6 +1823,17 @@ const handleFinish = async (s) => {
 
       <InstallBanner />
       {showPushModal && family && <PushModal familyName={family.name} onDone={function() { setShowPushModal(false); }} />}
+      {shortArticleConfirm && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease" }}>
+          <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"1px solid rgba(251,191,36,.3)", borderRadius:24, padding:"clamp(20px,4vw,32px)", maxWidth:380, width:"100%", textAlign:"center" }}>
+            <div style={{ fontSize:"clamp(48px, 24vw, 56px)", marginBottom:12 }}>📄</div>
+            <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 8px" }}>מאמר קצר</h2>
+            <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", margin:"0 0 20px", lineHeight:1.6 }}>הערך על {shortArticleConfirm.topic} קצר יחסית — ייתכנו חזרות על שאלות.</p>
+            <button onClick={function() { shortArticleConfirm.resolve(true); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🎮 בואו נשחק!</button>
+            <button onClick={function() { shortArticleConfirm.resolve(false); }} style={{ width:"100%", padding:"10px", background:"none", border:"1px solid rgba(255,255,255,0.12)", borderRadius:16, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>🔄 בחירת נושא אחר</button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
