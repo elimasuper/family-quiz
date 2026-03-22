@@ -200,18 +200,18 @@ async function getMyActiveChallenges(familyName, setOnline) {
   }, [], setOnline);
 }
 
-async function saveChallenge(code, familyName, familyPct, setOnline) {
+async function saveChallenge(code, familyName, familyPct, totalTime, setOnline) {
   return sbSafe(() => sbFetch("quiz_challenges", {
     method: "POST", prefer: "return=minimal",
-    body: JSON.stringify({ code, family_name: familyName, family_pct: familyPct, played_at: new Date().toISOString() }),
+    body: JSON.stringify({ code: code, family_name: familyName, family_pct: familyPct, total_time: totalTime || null, played_at: new Date().toISOString() }),
   }), null, setOnline);
 }
 
-async function updateChallenge(code, familyName, familyPct, setOnline) {
+async function updateChallenge(code, familyName, familyPct, totalTime, setOnline) {
   return sbSafe(async function() {
     var r = await sbFetch(("quiz_challenges?code=eq." + code + "&family_name=eq." + encodeURIComponent(familyName)), {
       method: "PATCH", prefer: "return=representation",
-      body: JSON.stringify({ family_pct: familyPct, played_at: new Date().toISOString() }),
+      body: JSON.stringify({ family_pct: familyPct, total_time: totalTime || null, played_at: new Date().toISOString() }),
     });
     return r && r.length > 0 ? r[0] : null;
   }, null, setOnline);
@@ -219,7 +219,7 @@ async function updateChallenge(code, familyName, familyPct, setOnline) {
 
 async function getChallenges(code, setOnline) {
   return sbSafe(async () => {
-    const r = await sbFetch(("quiz_challenges?code=eq." + code + "&select=family_name,family_pct&order=family_pct.desc&limit=20"));
+    const r = await sbFetch(("quiz_challenges?code=eq." + code + "&select=family_name,family_pct,total_time&order=family_pct.desc,total_time.asc&limit=20"));
     return r || [];
   }, [], setOnline);
 }
@@ -1397,13 +1397,15 @@ function QuizScreen({ quizData, members, onFinish }) {
   const [timerKey, setTimerKey] = useState(0);
   const [scores, setScores] = useState(() => Object.fromEntries(members.map(m => [m.name, {correct:0,total:0,points:0,timerSum:0,timerCount:0}])));
   const [timeLeft, setTimeLeft] = useState(0);
+  const quizStartTime = useRef(Date.now());
 
   const finished = ti >= turns.length;
   const finishedRef = useRef(false);
   useEffect(() => {
     if (finished && !finishedRef.current) {
       finishedRef.current = true;
-      onFinish(scores);
+      var totalSeconds = Math.round((Date.now() - quizStartTime.current) / 1000);
+      onFinish(scores, totalSeconds);
     }
   }, [finished]);
   if (finished) return (
@@ -1634,7 +1636,13 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
           </div>
           {(() => {
             const rows = tab==="challenge" ? board : tab==="mpts" ? monthly.pts : monthly.avg;
-            const getVal = (r) => tab==="challenge" ? r.family_pct+"%" : tab==="mpts" ? r.monthly_points+"נק'" : r.monthly_avg+"%";
+            const getVal = (r) => {
+              if (tab === "challenge") {
+                var timeStr = r.total_time ? (" \u26a1 " + Math.floor(r.total_time / 60) + ":" + String(r.total_time % 60).padStart(2, "0")) : "";
+                return r.family_pct + "%" + timeStr;
+              }
+              return tab === "mpts" ? r.monthly_points + "נק'" : r.monthly_avg + "%";
+            };
             const getSub = (r) => tab==="mavg" ? ("(" + (r.monthly_games || 0) + " משחקים)") : "";
             return (rows||[]).slice(0,8).map((r,i) => {
               const isMe = r.family_name===familyName;
@@ -1695,7 +1703,8 @@ function AppInner() {
   const [beatenBy, setBeatenBy]   = useState(null); // {name, score} של מי שעקף
   const [showPushModal, setShowPushModal] = useState(false);
   const [weeklyWinner, setWeeklyWinner] = useState(null);
-  const [closedResults, setClosedResults] = useState(null); // {topic, results: [{rank, family_name, family_pct}]}
+  const [closedResults, setClosedResults] = useState(null);
+  const [quizTime, setQuizTime] = useState(0); // {topic, results: [{rank, family_name, family_pct}]}
 
   // boot: check localStorage + URL code
   useEffect(() => {
@@ -1820,39 +1829,33 @@ function AppInner() {
       window.history.replaceState({}, "", window.location.pathname);
     } catch(e) { stop(); setError("שגיאה בטעינת החידון"); setScreen("home"); }
   };
-const handleFinish = async (s) => {
+const handleFinish = async (s, totalSeconds) => {
   setScores(s);
+  setQuizTime(totalSeconds || 0);
   const pct = fp(family.members, s);
   const rawScore = calcRawScore(family.members, s);
   try {
     if (isChallenger) {
-      // עדכן ציון קיים, או צור חדש
-      var updated = await updateChallenge(code, family.name, pct, null);
-      if (!updated) await saveChallenge(code, family.name, pct, null).catch(function(){});
-      // שמור גם ב-family_challenges כדי שהאתגר יופיע ברשימה שלי
+      var updated = await updateChallenge(code, family.name, pct, totalSeconds, null);
+      if (!updated) await saveChallenge(code, family.name, pct, totalSeconds, null).catch(function(){});
       saveFamilyChallenge(code, family.name, null).catch(function(){});
       upsertScore(family.name, rawScore, pct, null).catch(function(){});
-      // שלח Push למשפחות שנעקפו
       notifyBeatenFamilies(code, family.name, pct, topic);
       if (creatorPct !== null && pct > creatorPct) setBeatenBy(null);
       setScreen("results");
     } else {
-      // יוצר אתגר חדש
       var newCode = makeCode();
       setCode(newCode);
-      // שמור חדר + ציון + קשר לאתגר — await כדי שה-DB ייצור לפני שעוברים מסך
       await saveQuizRoom(newCode, topic, family.name, pct, null);
-      await saveChallenge(newCode, family.name, pct, null);
+      await saveChallenge(newCode, family.name, pct, totalSeconds, null);
       await saveFamilyChallenge(newCode, family.name, null);
       upsertScore(family.name, rawScore, pct, null).catch(function(){});
       setScreen("share");
     }
   } catch(e) {
     console.error("handleFinish error:", e);
-    // גם אם DB נכשל — תמיד הגע למסך תוצאות
     setScreen(isChallenger ? "results" : "share");
   }
-  // הצג מודל התראות אחרי סיום חידון
   if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
     setTimeout(function() { setShowPushModal(true); }, 1500);
   }
