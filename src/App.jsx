@@ -353,14 +353,18 @@ async function fetchWiki(topic) {
   // אם המאמר קצר — העשר עם מאמרי "ראו גם"
   var MIN_RICH = 4000;
   var originalLength = direct.text.length;
+  console.log("[fetchWiki] Original length:", originalLength, "title:", direct.title);
   if (direct.text.length < MIN_RICH) {
     var related = await getSeeAlso(direct.title);
+    console.log("[fetchWiki] Related articles from 'see also':", related);
     for (var i = 0; i < related.length && direct.text.length < MIN_RICH; i++) {
       var extra = await get(related[i]);
+      console.log("[fetchWiki] Fetched related:", related[i], extra ? ("length: " + extra.text.length) : "NOT FOUND");
       if (extra) {
         direct.text = direct.text + "\n\n" + extra.title + "\n" + extra.text.slice(0, 2000);
       }
     }
+    console.log("[fetchWiki] After enrichment, total length:", direct.text.length);
   }
 
   // ההתראה מבוססת על אורך המאמר המקורי, לא אחרי ההעשרה
