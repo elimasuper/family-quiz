@@ -231,6 +231,37 @@ async function hasPlayedQuiz(code, familyName, setOnline) {
   }, false, setOnline);
 }
 
+async function getLatestWinner() {
+  return sbSafe(async function() {
+    var r = await sbFetch("weekly_winners?announced=eq.false&order=week_end.desc&limit=1");
+    if (r && r.length > 0) return r[0];
+    return null;
+  }, null, null);
+}
+
+async function markWinnerAnnounced(winnerId) {
+  return sbSafe(function() {
+    return sbFetch("weekly_winners?id=eq." + winnerId, {
+      method: "PATCH",
+      body: JSON.stringify({ announced: true }),
+    });
+  }, null, null);
+}
+
+async function getMyClosedChallenges(familyName) {
+  return sbSafe(async function() {
+    var r = await sbFetch("challenge_results?family_name=eq." + encodeURIComponent(familyName) + "&order=closed_at.desc&limit=10");
+    return r || [];
+  }, [], null);
+}
+
+async function getClosedChallengeResults(code) {
+  return sbSafe(async function() {
+    var r = await sbFetch("challenge_results?code=eq." + code + "&order=rank.asc&limit=3");
+    return r || [];
+  }, [], null);
+}
+
 function calcBadges(scores, members, isChampion=false, streak=0) {
   const badges = [];
   const validMembers = (members||[]).filter(m => m && m.name && m.age != null);
@@ -969,6 +1000,8 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
   const [myChallenges, setMyChallenges] = useState([]);
   const [challengeLoading, setChallengeLoading] = useState(false);
   const [selectedChallenge, setSelectedChallenge] = useState(null);
+  const [myBadges, setMyBadges] = useState(null);
+  const [monthlyBoard, setMonthlyBoard] = useState([]);
 
   useEffect(() => { getMonthlyBoard(onSetOnline).then(d => setMonthly(d || {pts:[],avg:[]})); }, []);
 
@@ -976,6 +1009,17 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
     if (tab === "join") {
       setChallengeLoading(true);
       getMyActiveChallenges(family.name, onSetOnline).then(d => { setMyChallenges(d||[]); setChallengeLoading(false); });
+    }
+    if (tab === "badges") {
+      sbSafe(function() {
+        return sbFetch("family_badges?family_name=eq." + encodeURIComponent(family.name) + "&select=*");
+      }, null, null).then(function(r) { setMyBadges(r && r.length ? r[0] : { gold_medals:0, silver_medals:0, bronze_medals:0, perfect_games:0, weekly_wins:0, total_challenges:0, monthly_medal_points:0 }); });
+      sbSafe(function() {
+        return sbFetch("family_scores?family_name=eq." + encodeURIComponent(family.name) + "&select=streak");
+      }, null, null).then(function(r) { if (r && r.length) setMyBadges(function(prev) { return prev ? Object.assign({}, prev, { streak: r[0].streak || 0 }) : prev; }); });
+      sbSafe(function() {
+        return sbFetch("monthly_leaderboard?limit=10");
+      }, [], null).then(function(r) { setMonthlyBoard(r || []); });
     }
   }, [tab]);
 
@@ -999,7 +1043,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
       </div>
 
       <div style={{ display:"flex", gap:0, marginBottom:14, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:4 }}>
-        {[{k:"play",l:"🎮 שחק"},{k:"join",l:"⚔️ אתגר"},{k:"board",l:"🏆 לוח"}].map(({k,l}) => (
+        {[{k:"play",l:"🎮 שחק"},{k:"join",l:"⚔️ אתגר"},{k:"board",l:"🏆 לוח"},{k:"badges",l:"🎖️ הישגים"}].map(({k,l}) => (
           <button key={k} onClick={() => setTab(k)} style={{ flex:1, padding:"9px", border:"none", borderRadius:11, cursor:"pointer", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", background:tab===k?"rgba(124,58,237,0.4)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
         ))}
       </div>
@@ -1128,6 +1172,66 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
             );
           })}
         </div>
+      )}
+
+      {tab === "badges" && (
+        <>
+          <div style={C.card}>
+            <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:14 }}>🎖️ ההישגים של משפחת {family.name}</div>
+            {myBadges ? (
+              <>
+                <div style={{ display:"flex", justifyContent:"center", gap:16, marginBottom:16, flexWrap:"wrap" }}>
+                  {[
+                    { emoji:"🥇", count:myBadges.gold_medals, label:"זהב", color:"#fbbf24" },
+                    { emoji:"🥈", count:myBadges.silver_medals, label:"כסף", color:"#94a3b8" },
+                    { emoji:"🥉", count:myBadges.bronze_medals, label:"ארד", color:"#f59e0b" },
+                  ].map(function(b) {
+                    return (
+                      <div key={b.label} style={{ textAlign:"center", minWidth:70 }}>
+                        <div style={{ fontSize:"clamp(32px, 18vw, 40px)" }}>{b.emoji}</div>
+                        <div style={{ color:b.color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 28px)" }}>{b.count}</div>
+                        <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)" }}>{b.label}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ display:"flex", justifyContent:"center", gap:16, flexWrap:"wrap" }}>
+                  {[
+                    { emoji:"💯", count:myBadges.perfect_games, label:"100%" },
+                    { emoji:"🔥", count:myBadges.streak || 0, label:"רצף ימים" },
+                    { emoji:"🏆", count:myBadges.weekly_wins, label:"ניצחונות" },
+                    { emoji:"⚔️", count:myBadges.total_challenges, label:"אתגרים" },
+                  ].map(function(b) {
+                    return (
+                      <div key={b.label} style={{ textAlign:"center", minWidth:70 }}>
+                        <div style={{ fontSize:"clamp(24px, 16vw, 32px)" }}>{b.emoji}</div>
+                        <div style={{ color:"#c4b5fd", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 24px)" }}>{b.count}</div>
+                        <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)" }}>{b.label}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : <div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 19px)", padding:"16px 0" }}>טוען הישגים...</div>}
+          </div>
+
+          <div style={C.card}>
+            <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 24px)", marginBottom:12 }}>📊 דירוג חודשי — נקודות מדליות</div>
+            <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)", marginBottom:10 }}>🥇=3 נק' · 🥈=2 נק' · 🥉=1 נק'</div>
+            {monthlyBoard.length === 0 && <div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 19px)", padding:"16px 0" }}>אין עדיין תוצאות החודש</div>}
+            {monthlyBoard.map(function(r, i) {
+              var isMe = r.family_name === family.name;
+              return (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", marginBottom:6, background:isMe ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.03)", borderRadius:12, border:("1px solid " + (isMe ? "#a78bfa44" : "transparent")) }}>
+                  <span style={{ fontSize:"clamp(18px, 13vw, 24px)", minWidth:28 }}>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : ((i + 1) + ".")}</span>
+                  <span style={{ flex:1, color:isMe ? "#c4b5fd" : "#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 19px)" }}>{r.family_name}{isMe ? " (אתם)" : ""}</span>
+                  <span style={{ color:"#94a3b8", fontSize:"clamp(12px, 9vw, 15px)", fontFamily:"'Varela Round',sans-serif" }}>{r.gold_medals ? ("🥇" + r.gold_medals + " ") : ""}{r.silver_medals ? ("🥈" + r.silver_medals + " ") : ""}{r.bronze_medals ? ("🥉" + r.bronze_medals) : ""}</span>
+                  <span style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.monthly_medal_points}נק'</span>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
@@ -1590,6 +1694,8 @@ function AppInner() {
   const [sbOnline, setSbOnline]         = useState(true);
   const [beatenBy, setBeatenBy]   = useState(null); // {name, score} של מי שעקף
   const [showPushModal, setShowPushModal] = useState(false);
+  const [weeklyWinner, setWeeklyWinner] = useState(null);
+  const [closedResults, setClosedResults] = useState(null); // {topic, results: [{rank, family_name, family_pct}]}
 
   // boot: check localStorage + URL code
   useEffect(() => {
@@ -1617,6 +1723,21 @@ function AppInner() {
       }
       setFamily(saved);
       registerPush(saved.name);
+      // בדוק מנצח שבועי
+      getLatestWinner().then(function(w) { if (w) setWeeklyWinner(w); });
+      // בדוק אתגרים שנסגרו
+      getMyClosedChallenges(saved.name).then(function(results) {
+        if (results && results.length > 0) {
+          // קבץ לפי code — הצג את האחרון
+          var lastCode = results[0].code;
+          var lastTopic = results[0].topic;
+          var topResults = results.filter(function(r) { return r.code === lastCode; });
+          // בדוק אם כבר הוצג (localStorage)
+          if (!LS.get("seen_result_" + lastCode)) {
+            setClosedResults({ code: lastCode, topic: lastTopic, results: topResults });
+          }
+        }
+      });
       if (urlCode) {
         setTimeout(() => handleJoinWithFamily(saved, urlCode), 100);
       } else {
@@ -1831,6 +1952,40 @@ const handleFinish = async (s) => {
             <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", margin:"0 0 20px", lineHeight:1.6 }}>הערך על {shortArticleConfirm.topic} קצר יחסית — ייתכנו חזרות על שאלות.</p>
             <button onClick={function() { shortArticleConfirm.resolve(true); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🎮 בואו נשחק!</button>
             <button onClick={function() { shortArticleConfirm.resolve(false); }} style={{ width:"100%", padding:"10px", background:"none", border:"1px solid rgba(255,255,255,0.12)", borderRadius:16, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>🔄 בחירת נושא אחר</button>
+          </div>
+        </div>
+      )}
+      {weeklyWinner && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1001, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
+          <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
+            <div style={{ fontSize:"clamp(64px, 30vw, 80px)", marginBottom:8, animation:"bounce 1.5s ease infinite" }}>🏆</div>
+            <h2 style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(24px, 16vw, 32px)", margin:"0 0 6px" }}>מנצחי השבוע!</h2>
+            <p style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 4px" }}>משפחת {weeklyWinner.family_name}</p>
+            <p style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 4px" }}>{weeklyWinner.points} נקודות · {weeklyWinner.games_played} משחקים</p>
+            <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>🎉 כל הכבוד! הלוח התאפס — מתחילים שבוע חדש</p>
+            <button onClick={function() { markWinnerAnnounced(weeklyWinner.id); setWeeklyWinner(null); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#fbbf24,#f59e0b)", border:"none", borderRadius:16, color:"#1a1540", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #fbbf2455" }}>🎮 בואו נתחיל שבוע חדש!</button>
+          </div>
+        </div>
+      )}
+      {closedResults && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1002, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
+          <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(167,139,250,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
+            <div style={{ fontSize:"clamp(48px, 24vw, 60px)", marginBottom:8 }}>⚔️</div>
+            <h2 style={{ color:"#c4b5fd", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 4px" }}>אתגר נסגר!</h2>
+            <p style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 24px)", margin:"0 0 16px" }}>{closedResults.topic}</p>
+            {closedResults.results.map(function(r) {
+              var medal = r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉";
+              var color = r.rank === 1 ? "#fbbf24" : r.rank === 2 ? "#94a3b8" : "#f59e0b";
+              var isMe = family && r.family_name === family.name;
+              return (
+                <div key={r.rank} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", marginBottom:6, background:isMe ? "rgba(167,139,250,.15)" : "rgba(255,255,255,.05)", border:("1px solid " + (isMe ? "rgba(167,139,250,.3)" : "rgba(255,255,255,.08)")), borderRadius:14 }}>
+                  <span style={{ fontSize:"clamp(24px, 16vw, 30px)" }}>{medal}</span>
+                  <span style={{ flex:1, color:color, fontFamily:"'Fredoka One',cursive", fontSize:"clamp(16px, 12vw, 20px)", textAlign:"right" }}>{"משפחת " + r.family_name}</span>
+                  <span style={{ color:"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.family_pct + "%"}</span>
+                </div>
+              );
+            })}
+            <button onClick={function() { LS.set("seen_result_" + closedResults.code, true); setClosedResults(null); }} style={{ width:"100%", marginTop:14, padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55" }}>👍 סגור</button>
           </div>
         </div>
       )}
