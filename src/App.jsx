@@ -352,6 +352,7 @@ async function fetchWiki(topic) {
 
   // אם המאמר קצר — העשר עם מאמרי "ראו גם"
   var MIN_RICH = 4000;
+  var originalLength = direct.text.length;
   if (direct.text.length < MIN_RICH) {
     var related = await getSeeAlso(direct.title);
     for (var i = 0; i < related.length && direct.text.length < MIN_RICH; i++) {
@@ -362,7 +363,8 @@ async function fetchWiki(topic) {
     }
   }
 
-  direct.shortArticle = direct.text.length < 4000;
+  // ההתראה מבוססת על אורך המאמר המקורי, לא אחרי ההעשרה
+  direct.shortArticle = originalLength < 4000;
   return direct;
 }
 
@@ -487,10 +489,28 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   var len = wikiText.length;
   var chunkSize = 900;
   var positions = [];
-  // יותר chunks = כיסוי רחב יותר של המאמר
   var numChunksNeeded = Math.min(8, Math.max(4, members.length * 2));
+
+  // מצא את תחילת כל סקשיין מועשר (מסומן ב"---")
+  var enrichedStarts = [];
+  var dashIdx = 0;
+  while (true) {
+    dashIdx = wikiText.indexOf("\n\n--- ", dashIdx);
+    if (dashIdx === -1) break;
+    enrichedStarts.push(dashIdx + 5);
+    dashIdx += 5;
+  }
+
+  // הבטח chunk אחד מכל סקשיין מועשר
+  enrichedStarts.forEach(function(start) {
+    if (positions.length < numChunksNeeded && start + chunkSize <= len) {
+      positions.push(start);
+    }
+  });
+
+  // השלם עם chunks רנדומליים מהטקסט המלא
   if (len <= chunkSize * 2) {
-    positions = [0];
+    if (!positions.length) positions = [0];
   } else {
     var maxAttempts = 100;
     var attempts = 0;
