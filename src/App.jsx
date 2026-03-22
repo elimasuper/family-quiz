@@ -517,7 +517,13 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
     + "\n2b. אם כבר נוצרו שאלות בקריאות אחרות לאותה קבוצת גיל, חובה להתרחק מהן: לא אותו פרט, לא אותו מושג, לא אותה עובדה בניסוח אחר."
     + "\n3. חשוב מאוד: הטקסט מכיל מספר נושאים וחלקים — חובה לשאול שאלות מכל החלקים! אל תתמקד רק בחלק הראשון. אם יש בטקסט כמה נושאים שונים (למשל: כוסות ובקבוקים) — חובה לשאול שאלות גם על הנושא השני."
     + "\n4. אסור שהתשובה הנכונה תופיע בגוף השאלה."
-    + "\n5. עברית תקנית וברורה. כללים חשובים: המשפט חייב להיות תקין דקדוקית — נושא, נשוא ומשלים בסדר הגיוני. אסור משפטים מקוטעים או מבולבלים. השתמש במונחים שמופיעים בטקסט עצמו. דוגמה נכונה: 'כמה נקודות מקבלים על קליעה מעבר לקו?' דוגמה שגויה: 'כמה טיפים מקבל מי שקולע מרחוק?'"
+    + "\n5. עברית תקנית וברורה! כללים קריטיים:"
+    + "\n   - כל שאלה חייבת להיות משפט שלם וברור עם נושא, נשוא ומשלים."
+    + "\n   - אסור לערבב שני נושאים באותה שאלה."
+    + "\n   - אסור לשים את התשובה בתוך השאלה."
+    + "\n   - השתמש במונחים מהטקסט עצמו, לא במילים מומצאות."
+    + "\n   - דוגמאות נכונות: 'כמה נקודות מקבלים על קליעת שלוש?' / 'מי ייסד את קבוצת הבולס?' / 'באיזו שנה זכה ג׳ורדן באליפות הראשונה שלו?'"
+    + "\n   - דוגמאות שגויות שאסור לכתוב: 'איזה מנהל של קבוצה קנה ג׳ורדן את הקבוצה' (שני נושאים מעורבבים) / 'באיזה חודש ביולי דחה בית המשפט' (חודש ביולי = שטות, צריך רק 'מתי') / 'מה פעם לאיזו רגל פרץ' (משפט שבור)"
     + "\n6. 4 תשובות לכל שאלה, כך: תשובה נכונה אחת, 2 מסיחים סבירים שנשמעים אפשריים אבל שגויים, ומסיח אחד הומוריסטי/אבסורדי שברור שהוא לא נכון אבל מצחיק (למשל: אם השאלה על דינוזאורים, מסיח כמו 'פיצה')."
     + "\n7. אסור שהמסיחים יהיו דומים זה לזה — כל תשובה חייבת להיות שונה בבירור."
     + "\n8. emoji אחד כללי ורלוונטי לנושא השאלה, אבל לא כזה שחושף או מרמז על התשובה הנכונה."
@@ -1999,7 +2005,7 @@ const handleFinish = async (s, totalSeconds) => {
           )}
           {screen==="quiz"         && quizData && family && <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />}
           {screen==="share"        && <ShareScreen code={code} topic={topic} familyName={family?.name} pct={pct} onContinue={()=>setScreen("results")} />}
-          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} onHome={()=>setScreen("home")} onSameTopic={handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} beatenBy={beatenBy} onRematch={handleRematch} />}
+          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} onHome={()=>setScreen("home")} onSameTopic={code ? handleRetryChallenge : handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} beatenBy={beatenBy} onRematch={handleRematch} />}
         </div>
       </div>
 
@@ -2015,7 +2021,9 @@ const handleFinish = async (s, totalSeconds) => {
             <div style={{ background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.2)", borderRadius:16, padding:16, marginBottom:16, textAlign:"right" }}>
               <div style={{ color:"#fff", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(18px, 13vw, 22px)", marginBottom:8 }}>✨ Dare2Know פרימיום</div>
               <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", lineHeight:1.8 }}>
-                {"✅ חידונים ללא הגבלה\n✅ ללא פרסומות\n✅ העלאת חומר לימוד (בקרוב)".split("\n").map(function(line, i) { return React.createElement("div", { key: i }, line); })}
+                <div>✅ חידונים ללא הגבלה</div>
+                <div>✅ ללא פרסומות</div>
+                <div>✅ העלאת חומר לימוד (בקרוב)</div>
               </div>
               <div style={{ color:"#fbbf24", fontFamily:"'Fredoka One',cursive", fontSize:"clamp(20px, 14vw, 26px)", marginTop:8 }}>₪9.90/חודש</div>
             </div>
