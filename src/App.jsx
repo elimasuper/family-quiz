@@ -362,7 +362,7 @@ async function fetchWiki(topic) {
     }
   }
 
-  direct.shortArticle = direct.text.length < 2500;
+  direct.shortArticle = direct.text.length < 4000;
   return direct;
 }
 
