@@ -147,9 +147,34 @@ function incDailyCount() {
   return d.count;
 }
 function isPremium() {
-  // TODO: בדוק מנוי אמיתי מ-DB. כרגע — תמיד false
+  // בדוק מנוי אמיתי מ-DB (נטען ב-boot ונשמר ב-LS כ-cache)
   return LS.get("fq_premium") === true;
 }
+async function checkSubscription(familyName) {
+  return sbSafe(async function() {
+    var r = await sbFetch("subscriptions?family_name=eq." + encodeURIComponent(familyName) + "&status=eq.active&select=plan&limit=1");
+    if (r && r.length > 0) {
+      LS.set("fq_premium", true);
+      LS.set("fq_plan", r[0].plan);
+      return r[0].plan;
+    }
+    LS.remove("fq_premium");
+    LS.remove("fq_plan");
+    return null;
+  }, null, null);
+}
+async function saveSubscription(familyName, plan, subscriptionId) {
+  return sbSafe(function() {
+    return sbFetch("subscriptions", {
+      method: "POST", prefer: "return=minimal",
+      body: JSON.stringify({ family_name: familyName, plan: plan, paypal_subscription_id: subscriptionId, status: "active" }),
+    });
+  }, null, null);
+}
+
+var PAYPAL_CLIENT_ID = "ATCmqeIEv4sWnNHKBpAHAl8UQdFlTd973pueHqc0XacXRo-PepUlhVsWcpfGPj4W-THoiL12Y_SDcY1p";
+var PLAN_FAMILY = "P-01P1320932723100MNHA34LI";
+var PLAN_TEACHER = "P-9L0119353R040442CNHA36AY";
 
 async function registerFamily(name, pin, members, setOnline) {
   return sbSafe(async () => {
@@ -1737,6 +1762,44 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   );
 }
 
+// ─── PAYPAL BUTTON ────────────────────────────────────────────────────────────
+function PayPalBtn({ planId, planType, familyName, onSuccess }) {
+  var containerRef = useRef(null);
+  useEffect(function() {
+    if (!containerRef.current) return;
+    // טען PayPal SDK אם לא טעון
+    var scriptId = "paypal-sdk-script";
+    var existing = document.getElementById(scriptId);
+    var doRender = function() {
+      if (!window.paypal || !containerRef.current) return;
+      containerRef.current.innerHTML = "";
+      window.paypal.Buttons({
+        style: { shape: "rect", color: "gold", layout: "vertical", label: "subscribe" },
+        createSubscription: function(data, actions) {
+          return actions.subscription.create({ plan_id: planId });
+        },
+        onApprove: function(data) {
+          saveSubscription(familyName, planType, data.subscriptionID);
+          if (onSuccess) onSuccess();
+        }
+      }).render(containerRef.current);
+    };
+    if (existing && window.paypal) { doRender(); return; }
+    if (existing) { existing.addEventListener("load", doRender); return; }
+    var s = document.createElement("script");
+    s.id = scriptId;
+    s.src = "https://www.paypal.com/sdk/js?client-id=" + PAYPAL_CLIENT_ID + "&vault=true&intent=subscription&currency=ILS";
+    s.setAttribute("data-sdk-integration-source", "button-factory");
+    s.onload = doRender;
+    document.head.appendChild(s);
+  }, [planId, familyName]);
+  return (
+    <div ref={containerRef} style={{ minHeight:50 }}>
+      <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:14, textAlign:"center", padding:12 }}>טוען PayPal...</div>
+    </div>
+  );
+}
+
 function AppInner() {
   const [family, setFamily]       = useState(null);        // loaded from LS on boot
   const [screen, setScreen]       = useState("boot");      // boot|welcome|home|loading|editFamily|quiz|share|results
@@ -1782,6 +1845,8 @@ function AppInner() {
       }
       setFamily(saved);
       registerPush(saved.name);
+      // בדוק מנוי פעיל
+      checkSubscription(saved.name);
       // בדוק מנצח שבועי
       getLatestWinner().then(function(w) { if (w) setWeeklyWinner(w); });
       // בדוק אתגרים שנסגרו
@@ -1852,10 +1917,12 @@ function AppInner() {
   };
 
   const [showUpsell, setShowUpsell] = useState(false);
+  const [upsellTab, setUpsellTab] = useState("family");
 
   const checkDailyLimit = function() {
     if (isPremium()) return true;
     if (getDailyCount() >= DAILY_LIMIT) {
+      setUpsellTab("family");
       setShowUpsell(true);
       return false;
     }
@@ -2026,33 +2093,41 @@ const handleFinish = async (s, totalSeconds) => {
             <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", margin:"0 0 4px" }}>השתמשתם ב-{DAILY_LIMIT} חידונים. מחר תקבלו עוד!</p>
             <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)", margin:"0 0 16px" }}>או שדרגו ושחקו ללא הגבלה</p>
 
-            <div style={{ background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.3)", borderRadius:16, padding:14, marginBottom:10, textAlign:"right" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)" }}>₪9.90/חודש</div>
-                <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>👨‍👩‍👧‍👦 משפחתי</div>
+            {upsellTab === "family" ? (
+              <div>
+                <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+                  <button onClick={function() { setUpsellTab("family"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"2px solid #a78bfa", background:"rgba(167,139,250,.2)", color:"#c4b5fd", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>👨‍👩‍👧‍👦 משפחתי</button>
+                  <button onClick={function() { setUpsellTab("teacher"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"1px solid rgba(255,255,255,.1)", background:"transparent", color:"#64748b", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>📚 מורים</button>
+                </div>
+                <div style={{ background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.3)", borderRadius:16, padding:14, marginBottom:12, textAlign:"right" }}>
+                  <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", textAlign:"center", marginBottom:6 }}>₪9.90/חודש</div>
+                  <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
+                    <div>✅ חידונים ללא הגבלה</div>
+                    <div>✅ ללא פרסומות</div>
+                  </div>
+                </div>
+                <PayPalBtn planId={PLAN_FAMILY} planType="family" familyName={family ? family.name : ""} onSuccess={function() { LS.set("fq_premium", true); LS.set("fq_plan", "family"); setShowUpsell(false); }} />
               </div>
-              <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
-                <div>✅ חידונים ללא הגבלה</div>
-                <div>✅ ללא פרסומות</div>
+            ) : (
+              <div>
+                <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+                  <button onClick={function() { setUpsellTab("family"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"1px solid rgba(255,255,255,.1)", background:"transparent", color:"#64748b", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>👨‍👩‍👧‍👦 משפחתי</button>
+                  <button onClick={function() { setUpsellTab("teacher"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"2px solid #fbbf24", background:"rgba(251,191,36,.1)", color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>📚 מורים</button>
+                </div>
+                <div style={{ background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.3)", borderRadius:16, padding:14, marginBottom:12, textAlign:"right" }}>
+                  <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", textAlign:"center", marginBottom:6 }}>₪29.90/חודש</div>
+                  <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
+                    <div>✅ חידונים ללא הגבלה</div>
+                    <div>✅ ללא פרסומות</div>
+                    <div>✅ העלאת חומר לימוד</div>
+                    <div>✅ עד 500 חידוני תלמידים/חודש</div>
+                  </div>
+                </div>
+                <div style={{ padding:"14px", background:"rgba(251,191,36,.1)", borderRadius:16, color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", textAlign:"center" }}>🔜 בקרוב!</div>
               </div>
-            </div>
+            )}
 
-            <div style={{ background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.3)", borderRadius:16, padding:14, marginBottom:16, textAlign:"right", position:"relative" }}>
-              <div style={{ position:"absolute", top:-10, left:"50%", transform:"translateX(-50%)", background:"#fbbf24", color:"#1a1540", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(11px, 8vw, 13px)", padding:"2px 12px", borderRadius:20 }}>מומלץ למורים</div>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8, marginTop:4 }}>
-                <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)" }}>₪29.90/חודש</div>
-                <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>📚 מורים</div>
-              </div>
-              <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
-                <div>✅ חידונים ללא הגבלה</div>
-                <div>✅ ללא פרסומות</div>
-                <div>✅ העלאת חומר לימוד</div>
-                <div>✅ עד 500 חידוני תלמידים/חודש</div>
-              </div>
-            </div>
-
-            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"13px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8, opacity:0.5 }}>🔜 בקרוב!</button>
-            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"8px", background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", cursor:"pointer" }}>חזרה — נשחק מחר 😊</button>
+            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"8px", marginTop:8, background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", cursor:"pointer" }}>חזרה — נשחק מחר 😊</button>
           </div>
         </div>
       )}
