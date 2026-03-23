@@ -134,17 +134,49 @@ const todayStr = () => new Date().toISOString().split("T")[0];
 // ─── DAILY QUIZ LIMIT ────────────────────────────────────────────────────────
 const DAILY_LIMIT = 3;
 const DAILY_KEY = "fq_daily";
+
 function getDailyCount() {
   var d = LS.get(DAILY_KEY);
   if (!d || d.date !== todayStr()) return 0;
   return d.count || 0;
 }
+
 function incDailyCount() {
+  // עדכן localStorage (cache מהיר)
   var d = LS.get(DAILY_KEY);
-  if (!d || d.date !== todayStr()) { LS.set(DAILY_KEY, { date: todayStr(), count: 1 }); return 1; }
+  if (!d || d.date !== todayStr()) { d = { date: todayStr(), count: 0 }; }
   d.count = (d.count || 0) + 1;
   LS.set(DAILY_KEY, d);
   return d.count;
+}
+
+async function incDailyCountDB(familyName) {
+  // עדכן גם ב-DB (סנכרון בין מכשירים)
+  incDailyCount();
+  return sbSafe(async function() {
+    var today = todayStr();
+    var r = await sbFetch("family_scores?family_name=eq." + encodeURIComponent(familyName) + "&select=daily_quizzes,daily_date");
+    if (r && r.length > 0) {
+      var current = r[0];
+      var count = (current.daily_date === today) ? (current.daily_quizzes || 0) + 1 : 1;
+      await sbFetch("family_scores?family_name=eq." + encodeURIComponent(familyName), {
+        method: "PATCH",
+        body: JSON.stringify({ daily_quizzes: count, daily_date: today }),
+      });
+    }
+  }, null, null);
+}
+
+async function syncDailyCount(familyName) {
+  // סנכרן מ-DB ל-localStorage (boot)
+  return sbSafe(async function() {
+    var r = await sbFetch("family_scores?family_name=eq." + encodeURIComponent(familyName) + "&select=daily_quizzes,daily_date");
+    if (r && r.length > 0 && r[0].daily_date === todayStr()) {
+      LS.set(DAILY_KEY, { date: todayStr(), count: r[0].daily_quizzes || 0 });
+    } else {
+      LS.set(DAILY_KEY, { date: todayStr(), count: 0 });
+    }
+  }, null, null);
 }
 function isPremium() {
   // בדוק מנוי אמיתי מ-DB (נטען ב-boot ונשמר ב-LS כ-cache)
@@ -230,7 +262,7 @@ async function getMyActiveChallenges(familyName, setOnline) {
     const codes = fc.map(r => r.challenge_code);
     // קבל את פרטי החדרים הפעילים
     const rooms = await Promise.all(codes.map(c =>
-      sbFetch(("quiz_rooms?code=eq." + c + "&expires_at=gte." + now + "&select=code,topic,creator_family,creator_pct"))
+      sbFetch(("quiz_rooms?code=eq." + c + "&expires_at=gte." + now + "&select=code,topic,creator_family,creator_pct,expires_at"))
         .then(r => r && r.length ? r[0] : null).catch(() => null)
     ));
     const active = rooms.filter(Boolean);
@@ -1138,7 +1170,8 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
               <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 22px)", marginBottom:10 }}>⚔️ האתגרים שלי</div>
               {myChallenges.map((ch,i) => {
                 const isOpen = selectedChallenge === ch.code;
-                const daysLeft = Math.ceil((new Date(ch.expires_at||Date.now()+86400000) - new Date()) / 86400000);
+                const daysLeft = Math.max(0, Math.ceil((new Date(ch.expires_at) - new Date()) / 86400000));
+                const daysText = daysLeft === 1 ? "יום אחד נותר" : daysLeft + " ימים נותרו";
                 return (
                   <div key={ch.code} style={{ marginBottom:8 }}>
                     <button onClick={() => setSelectedChallenge(isOpen ? null : ch.code)}
@@ -1147,7 +1180,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                         <div style={{ flex:1 }}>
                           <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>{ch.topic}</div>
                           <div style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", marginTop:2 }}>
-                            {ch.total} משפחות · {daysLeft} ימים נותרו
+                            {ch.total} משפחות · {daysText}
                           </div>
                         </div>
                         <div style={{ textAlign:"center" }}>
@@ -1847,6 +1880,8 @@ function AppInner() {
       registerPush(saved.name);
       // בדוק מנוי פעיל
       checkSubscription(saved.name);
+      // סנכרן ספירה יומית מ-DB
+      syncDailyCount(saved.name);
       // בדוק מנצח שבועי
       getLatestWinner().then(function(w) { if (w) setWeeklyWinner(w); });
       // בדוק אתגרים שנסגרו
@@ -1935,7 +1970,7 @@ function AppInner() {
     const stop = startLoad();
     try {
       const validated = await buildQuiz(t, family.members);
-      incDailyCount();
+      incDailyCountDB(family.name);
       stop(); setQuizData(validated); setScreen("quiz");
     } catch(e) {
       stop();
@@ -1955,7 +1990,7 @@ function AppInner() {
         stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct); setScreen("alreadyPlayed"); return;
       }
       const validated = await buildQuiz(room.topic, family.members);
-      incDailyCount();
+      incDailyCountDB(family.name);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
       setQuizData(validated); setIsChallenger(true); setScreen("quiz");
       window.history.replaceState({}, "", window.location.pathname);
@@ -1998,7 +2033,7 @@ const handleFinish = async (s, totalSeconds) => {
     const stop = startLoad();
     try {
       const validated = await buildQuiz(topic, family.members);
-      incDailyCount();
+      incDailyCountDB(family.name);
       stop(); setQuizData(validated); setIsChallenger(false); setCreatorPct(null); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
@@ -2008,7 +2043,7 @@ const handleFinish = async (s, totalSeconds) => {
     const stop = startLoad();
     try {
       const validated = await buildQuiz(topic, family.members);
-      incDailyCount();
+      incDailyCountDB(family.name);
       const newCode = makeCode();
       setCode(newCode);
       stop(); setQuizData(validated); setIsChallenger(false); setBeatenBy(null); setScreen("quiz");
@@ -2021,7 +2056,7 @@ const handleFinish = async (s, totalSeconds) => {
     const stop = startLoad();
     try {
       const validated = await buildQuiz(blockedTopic || topic, family.members);
-      incDailyCount();
+      incDailyCountDB(family.name);
       stop(); setTopic(blockedTopic || topic); setQuizData(validated); setIsChallenger(true); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
