@@ -1,7 +1,49 @@
-// Service Worker — Push Notifications for Family Quiz
+// Service Worker — Dare2Know
+// Push Notifications + Network-first caching (always fresh)
 
+var CACHE_NAME = "dare2know-v2";
+
+// Install — skip waiting to activate immediately
+self.addEventListener("install", function(event) {
+  self.skipWaiting();
+});
+
+// Activate — clear old caches
+self.addEventListener("activate", function(event) {
+  event.waitUntil(
+    caches.keys().then(function(names) {
+      return Promise.all(
+        names.filter(function(n) { return n !== CACHE_NAME; })
+          .map(function(n) { return caches.delete(n); })
+      );
+    }).then(function() { return self.clients.claim(); })
+  );
+});
+
+// Fetch — network first, fallback to cache
+self.addEventListener("fetch", function(event) {
+  if (event.request.method !== "GET") return;
+  var url = event.request.url;
+  if (url.includes("/api/") || url.includes("supabase") || url.includes("paypal") || url.includes("googleapis")) return;
+
+  event.respondWith(
+    fetch(event.request).then(function(response) {
+      if (response.ok) {
+        var clone = response.clone();
+        caches.open(CACHE_NAME).then(function(cache) {
+          cache.put(event.request, clone);
+        });
+      }
+      return response;
+    }).catch(function() {
+      return caches.match(event.request);
+    })
+  );
+});
+
+// Push notifications
 self.addEventListener("push", function(event) {
-  var data = { title: "חידון המשפחה 🎮", body: "יש לך עדכון חדש!", url: "/" };
+  var data = { title: "Dare2Know 🧠", body: "יש לך עדכון חדש!", url: "/" };
   try {
     data = event.data.json();
   } catch(e) {}
