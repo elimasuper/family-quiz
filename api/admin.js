@@ -12,6 +12,33 @@ export default async function handler(req) {
   var SK = process.env.SUPABASE_ANON_KEY;
   var headers = { "apikey": SK, "Authorization": "Bearer " + SK, "Content-Type": "application/json" };
 
+  // טיפול בשדרוג משפחה לפרימיום (POST)
+  if (req.method === "POST") {
+    try {
+      var body = await req.json();
+      var famName = body.family_name;
+      
+      // יצירת רשומת מנוי ב-Supabase
+      var subData = {
+        family_name: famName,
+        plan: "premium_manual",
+        status: "active",
+        created_at: new Date().toISOString()
+      };
+
+      await fetch(SB + "/rest/v1/subscriptions", {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(subData)
+      });
+
+      return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+  }
+
+  // טיפול במשיכת נתונים (GET)
   async function sbGet(path) {
     try {
       var r = await fetch(SB + "/rest/v1/" + path, { headers: headers });
@@ -21,27 +48,18 @@ export default async function handler(req) {
   }
 
   try {
-    // משיכת נתונים מהטבלאות השונות
-    var families = await sbGet("families?select=name,created_at&order=created_at.desc&limit=20");
-    var subs = await sbGet("subscriptions?select=family_name,plan,status,created_at&status=eq.active&order=created_at.desc");
-    var rooms = await sbGet("quiz_rooms?select=topic,creator_family,code,created_at&order=created_at.desc&limit=20");
-    
-    // ספירות כלליות (ללא הגבלת limit לצורך המונים)
-    var totalFam = await sbGet("families?select=name");
-    var totalRooms = await sbGet("quiz_rooms?select=id");
+    var families = await sbGet("families?select=name,created_at&order=created_at.desc&limit=50");
+    var subs = await sbGet("subscriptions?select=family_name,status&status=eq.active");
+    var rooms = await sbGet("quiz_rooms?select=id,topic,creator_family,created_at&order=created_at.desc&limit=20");
 
-    var stats = {
-      totalFamilies: totalFam.length,
+    return new Response(JSON.stringify({
+      totalFamilies: families.length,
       activeSubscriptions: subs.length,
-      activeGroups: totalRooms.length,
+      activeGroups: rooms.length,
       recentFamilies: families,
-      recentSubs: subs,
-      recentChallenges: rooms
-    };
-
-    return new Response(JSON.stringify(stats), {
-      headers: { "Content-Type": "application/json" }
-    });
+      recentChallenges: rooms,
+      premiumFamilyNames: subs.map(function(s) { return s.family_name; })
+    }), { headers: { "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500 });
   }
