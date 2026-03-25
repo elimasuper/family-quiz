@@ -2207,15 +2207,30 @@ const handleFinish = async (s, totalSeconds) => {
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1001, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(64px, 30vw, 80px)", marginBottom:8, animation:"bounce 1.5s ease infinite" }}>🏆</div>
-            <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(24px, 16vw, 32px)", margin:"0 0 6px" }}>מנצחי השבוע!</h2>
-            <p style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 4px" }}>משפחת {weeklyWinner.family_name}</p>
-            <p style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 4px" }}>{weeklyWinner.points} נקודות · {weeklyWinner.games_played} משחקים</p>
-            <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>🎉 כל הכבוד! הלוח התאפס — מתחילים שבוע חדש</p>
-            <button onClick={function() { markWinnerAnnounced(weeklyWinner.id); setWeeklyWinner(null); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#fbbf24,#f59e0b)", border:"none", borderRadius:16, color:"#1a1540", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #fbbf2455" }}>🎮 בואו נתחיל שבוע חדש!</button>
+            
+            {/* כותרת דינמית: יחיד או רבים */}
+            <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(24px, 16vw, 32px)", margin:"0 0 6px" }}>
+              {family && family.members && family.members.length > 1 ? "אלופי החודש!" : "אלוף החודש!"}
+            </h2>
+
+            <p style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 4px" }}>
+              משפחת {weeklyWinner.family_name}
+            </p>
+
+            <p style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 4px" }}>
+              {weeklyWinner.score} נקודות
+            </p>
+
+            <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>
+              🎉 כל הכבוד! הלוח התאפס — מתחילים חודש חדש
+            </p>
+
+            <button onClick={function() { markWinnerAnnounced(weeklyWinner.id); setWeeklyWinner(null); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#fbbf24,#f59e0b)", border:"none", borderRadius:16, color:"#1a1540", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #fbbf2455" }}>
+              🎮 בואו נתחיל חודש חדש!
+            </button>
           </div>
         </div>
       )}
-      {closedResults && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1002, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(167,139,250,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(48px, 24vw, 60px)", marginBottom:8 }}>⚔️</div>
