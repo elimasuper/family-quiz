@@ -1856,7 +1856,6 @@ function PayPalBtn({ planId, planType, familyName, onSuccess }) {
     </div>
   );
 }
-
 function AppInner() {
   const [family, setFamily]       = useState(null);        // loaded from LS on boot
   const [screen, setScreen]       = useState("boot");      // boot|welcome|home|loading|editFamily|quiz|share|results
@@ -1877,23 +1876,32 @@ function AppInner() {
   const [quizTime, setQuizTime] = useState(0); // {topic, results: [{rank, family_name, family_pct}]}
 
   // boot: check localStorage + URL code
-  useEffect(() => {
-    const saved = getFamily();
-    const urlCode = new URLSearchParams(window.location.search).get("code");
+  useEffect(function() {
+    // --- מנגנון עדכון אוטומטי (PWA Update) ---
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("controllerchange", function() {
+        window.location.reload();
+      });
+    }
+
+    // --- לוגיקת האתחול שלך ---
+    var saved = getFamily();
+    var urlCode = new URLSearchParams(window.location.search).get("code");
+
     if (saved) {
-      // אם members ריק — נסה לטעון מ-Supabase
       if (!saved.members || !saved.members.length) {
-        sbSafe(async () => {
-          const r = await sbFetch("families?name=eq." + encodeURIComponent(saved.name) + "&select=*");
-          const dbMembers = (r?.[0]?.members || []).map(m => ({ name: m.name, age: parseInt(m.age)||10 }));
+        sbSafe(async function() {
+          var r = await sbFetch("families?name=eq." + encodeURIComponent(saved.name) + "&select=*");
+          var dbMembers = (r && r[0] && r[0].members ? r[0].members : []).map(function(m) {
+             return { name: m.name, age: parseInt(m.age) || 10 };
+          });
           if (dbMembers.length) {
-            const updated = { ...saved, members: dbMembers };
+            var updated = { name: saved.name, members: dbMembers };
             saveFamily(updated);
             setFamily(updated);
-            if (urlCode) setTimeout(() => handleJoinWithFamily(updated, urlCode), 100);
+            if (urlCode) setTimeout(function() { handleJoinWithFamily(updated, urlCode); }, 100);
             else setScreen("home");
           } else {
-            // אין ב-DB גם כן — שלח ל-welcome לעדכון גילאים
             setFamily(saved);
             setScreen("home");
           }
@@ -1902,27 +1910,21 @@ function AppInner() {
       }
       setFamily(saved);
       registerPush(saved.name);
-      // בדוק מנוי פעיל
       checkSubscription(saved.name);
-      // סנכרן ספירה יומית מ-DB
       syncDailyCount(saved.name);
-      // בדוק מנצח שבועי
       getLatestWinner().then(function(w) { if (w) setWeeklyWinner(w); });
-      // בדוק אתגרים שנסגרו
       getMyClosedChallenges(saved.name).then(function(results) {
         if (results && results.length > 0) {
-          // קבץ לפי code — הצג את האחרון
           var lastCode = results[0].code;
           var lastTopic = results[0].topic;
           var topResults = results.filter(function(r) { return r.code === lastCode; });
-          // בדוק אם כבר הוצג (localStorage)
           if (!LS.get("seen_result_" + lastCode)) {
             setClosedResults({ code: lastCode, topic: lastTopic, results: topResults });
           }
         }
       });
       if (urlCode) {
-        setTimeout(() => handleJoinWithFamily(saved, urlCode), 100);
+        setTimeout(function() { handleJoinWithFamily(saved, urlCode); }, 100);
       } else {
         setScreen("home");
       }
