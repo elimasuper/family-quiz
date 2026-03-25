@@ -2251,4 +2251,14 @@ const handleFinish = async (s, totalSeconds) => {
                 </div>
               );
             })}
-            <button onClick={function() { if(closedResults?.code) LS.set("seen_result_" + closedResults.code, true); setClosedResults(null); }} style={{ width:"100%", marginTop:14, padding:"14px", background:"linear-gradient(135deg,#7c
+            <button onClick={function() { if(closedResults?.code) LS.set("seen_result_" + closedResults.code, true); setClosedResults(null); }} style={{ width:"100%", marginTop:14, padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55" }}>👍 סגור</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  return <ErrorBoundary><AppInner /></ErrorBoundary>;
+}
