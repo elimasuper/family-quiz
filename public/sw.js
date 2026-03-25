@@ -1,7 +1,7 @@
 // Service Worker — Dare2Know
 // Push Notifications + Network-first caching (always fresh)
 
-var CACHE_NAME = "dare2know-v2";
+var CACHE_NAME = "dare2know-v3"; // שונה מ-v2 ל-v3
 
 // Install — skip waiting to activate immediately
 self.addEventListener("install", function(event) {
