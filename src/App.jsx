@@ -1710,18 +1710,18 @@ function ConfettiOnce() {
   useEffect(() => { const t = setTimeout(() => setActive(false), 3000); return () => clearTimeout(t); }, []);
   return <Confetti active={active} />;
 }
-
 function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, quizTime, onHome, onSameTopic, onSetOnline, onShare, beatenBy, onRematch }) {
   const [board, setBoard] = useState([]);
   const [monthly, setMonthly] = useState({pts:[],avg:[]});
   const [tab, setTab] = useState("challenge");
   const pct = fp(members, scores);
-  // הודעות שמעודדות תמיד לשחק עוד
+  
   var msg, sub, emoji;
   if (pct === 100)     { emoji = "🏆"; msg = "מושלם!"; sub = "אלופים! בואו ננסה נושא חדש?"; }
   else if (pct >= 85)  { emoji = "🔥"; msg = "כמעט מושלם!"; sub = "עוד קצת ואתם על 100%!"; }
   else if (pct >= 65)  { emoji = "💪"; msg = "יופי של התחלה!"; sub = "שאלות חדשות = הזדמנות לשפר!"; }
   else                 { emoji = "🎯"; msg = "יש מאיפה לטפס!"; sub = "כל סיבוב מלמד משהו חדש — קדימה!"; }
+  
   const badges = calcBadges(scores, members);
 
   useEffect(() => {
@@ -1730,54 +1730,44 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
     getMonthlyBoard(null).then(d => setMonthly(d||{pts:[],avg:[]})).catch(()=>{});
   }, [code]);
 
-  const myRank = board.findIndex(r => r.family_name===familyName) + 1;
-  // מצא את הציון הגבוה ביותר של מתחרה (לא אנחנו)
-  var topRival = board.find(function(r) { return r.family_name !== familyName; });
-  var rivalPct = topRival ? topRival.family_pct : creatorPct;
-  var beat = rivalPct !== null && pct > rivalPct;
+  const myRank = board.findIndex(r => r.family_name === familyName) + 1;
+  const topRival = board.find(r => r.family_name !== familyName);
+  const rivalPct = topRival ? topRival.family_pct : creatorPct;
+  const beat = rivalPct !== null && pct > rivalPct;
 
   return (
-    <div style={{ animation:"slideIn .5s ease" }} key="results-screen">
+    <div style={{ animation: "slideIn .5s ease" }} key="results-screen">
       <ConfettiOnce />
-      <div style={{ ...C.card, textAlign:"center", marginBottom:14 }}>
-        <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:8, animation:"bounce 1s ease infinite" }}>{emoji}</div>
-        <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(26px, 16vw, 32px)", margin:"0 0 4px" }}>{msg}</h2>
-        {beat && <div style={{ color:"#4ade80", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 25px)", marginBottom:6 }}>🎯 ניצחתם! ({pct}% vs {rivalPct}%)</div>}
-        <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", margin:"0 0 6px", fontSize:"clamp(15px, 11vw, 20px)" }}>{sub}</p>
-        <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", margin:"0 0 14px", fontSize:"clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
-        <div style={{ background:"rgba(255,255,255,.08)", borderRadius:16, padding:"14px 24px", display:"inline-block" }}>
-          <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{pct}%</div>
-  <div style={{ background: "rgba(255,255,255,.08)", borderRadius: 16, padding: "14px 24px", display: "inline-block" }}>
-  <div style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(52px, 26vw, 62px)", lineHeight: 1 }}>{pct}%</div>
-  
-  {myRank > 0 && (
-    <div style={{ marginTop: 4 }}>
-      <div style={{ color: "#a78bfa", fontFamily: "'Varela Round',sans-serif", fontSize: "clamp(16px, 12vw, 22px)" }}>
-        מקום {myRank} מבין {board.length} משפחות
-      </div>
-      <div style={{ color: "#94a3b8", fontSize: "14px", marginTop: 4, opacity: 0.9 }}>
-        ⚡ מהירות: {Number(quizTime || 0).toFixed(1)} שניות לשאלה
-      </div>
-    </div>
-  )}
-</div> {/* <--- הסגירה הזו חשובה! */}
+      <div style={{ ...C.card, textAlign: "center", marginBottom: 14 }}>
+        <div style={{ fontSize: "clamp(56px, 28vw, 67px)", marginBottom: 8, animation: "bounce 1s ease infinite" }}>{emoji}</div>
+        <h2 style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(26px, 16vw, 32px)", margin: "0 0 4px" }}>{msg}</h2>
+        
+        {beat && <div style={{ color: "#4ade80", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(18px, 13vw, 25px)", marginBottom: 6 }}>🎯 ניצחתם! ({pct}% vs {rivalPct}%)</div>}
+        
+        <p style={{ color: "#94a3b8", fontFamily: "'Varela Round',sans-serif", margin: "0 0 6px", fontSize: "clamp(15px, 11vw, 20px)" }}>{sub}</p>
+        <p style={{ color: "#475569", fontFamily: "'Varela Round',sans-serif", margin: "0 0 14px", fontSize: "clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
+        
+        <div style={{ background: "rgba(255,255,255,.08)", borderRadius: 16, padding: "14px 24px", display: "inline-block" }}>
+          <div style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(52px, 26vw, 62px)", lineHeight: 1 }}>{pct}%</div>
+          
+          {myRank > 0 && (
+            <div style={{ marginTop: 4 }}>
+              <div style={{ color: "#a78bfa", fontFamily: "'Varela Round',sans-serif", fontSize: "clamp(16px, 12vw, 22px)" }}>
+                מקום {myRank} מבין {board.length} משפחות
+              </div>
+              <div style={{ color: "#94a3b8", fontSize: "14px", marginTop: 4, opacity: 0.9 }}>
+                ⚡ מהירות: {Number(quizTime || 0).toFixed(1)} שניות לשאלה
+              </div>
+            </div>
+          )}
+        </div>
 
-{badges.length > 0 && (
-  <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}>
-    {badges.map((b, i) => (
-      <div key={i} style={{ background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", borderRadius: 20, padding: "5px 14px", display: "flex", alignItems: "center", gap: 5 }}>
-        <span style={{ fontSize: "clamp(16px, 12vw, 20px)" }}>{b.emoji}</span>
-        <span style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(14px, 11vw, 17px)" }}>{b.label}</span>
-      </div>
-    ))}
-  </div>
-)}
         {badges.length > 0 && (
-          <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", marginTop:12 }}>
-            {badges.map((b,i) => (
-              <div key={i} style={{ background:"rgba(251,191,36,.12)", border:"1px solid rgba(251,191,36,.3)", borderRadius:20, padding:"5px 14px", display:"flex", alignItems:"center", gap:5 }}>
-                <span style={{ fontSize:"clamp(16px, 12vw, 20px)" }}>{b.emoji}</span>
-                <span style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 11vw, 17px)" }}>{b.label}</span>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}>
+            {badges.map((b, i) => (
+              <div key={i} style={{ background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", borderRadius: 20, padding: "5px 14px", display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: "clamp(16px, 12vw, 20px)" }}>{b.emoji}</span>
+                <span style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(14px, 11vw, 17px)" }}>{b.label}</span>
               </div>
             ))}
           </div>
@@ -1785,425 +1775,41 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
       </div>
 
       <div style={C.card}>
-        <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(19px, 14vw, 25px)", marginBottom:10 }}>🎖️ גיבורי המשפחה</div>
-        {[...members].sort((a,b) => {
+        <div style={{ color: "#fff", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(19px, 14vw, 25px)", marginBottom: 10 }}>🎖️ גיבורי המשפחה</div>
+        {[...members].sort((a, b) => {
           const pa = scores[a.name]; const pb = scores[b.name];
-          const pctA = pa?.total ? pa.correct/pa.total : 0;
-          const pctB = pb?.total ? pb.correct/pb.total : 0;
+          const pctA = pa?.total ? pa.correct / pa.total : 0;
+          const pctB = pb?.total ? pb.correct / pb.total : 0;
           return pctB - pctA;
-        }).map((m,i) => {
-          const g=ag(m.age); const s=scores[m.name]; const p=s.total?Math.round(s.correct/s.total*100):0;
+        }).map((m, i) => {
+          const g = ag(m.age); const s = scores[m.name]; const p = s.total ? Math.round(s.correct / s.total * 100) : 0;
           return (
-            <div key={m.name} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8, padding:"12px", background:"rgba(255,255,255,.04)", borderRadius:14, border:("1px solid " + g.color + "33") }}>
-              <span style={{ fontSize:"clamp(20px, 14vw, 26px)" }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"🎖️"}</span>
-              <div style={{ width:36, height:36, borderRadius:"50%", background:(g.color + "22"), border:("2px solid " + g.color), display:"flex", alignItems:"center", justifyContent:"center", fontSize:"clamp(18px, 13vw, 25px)" }}>{g.emoji}</div>
-              <div style={{ flex:1 }}>
-                <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 22px)" }}>{m.name}</div>
-                <div style={{ color:"#64748b", fontSize:"clamp(13px, 10vw, 20px)", fontFamily:"'Varela Round',sans-serif" }}>{s.correct}/{s.total} נכון · {p}%{g.bonus?" · ⚡ בונוס זמן":""}</div>
+            <div key={m.name} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "12px", background: "rgba(255,255,255,.04)", borderRadius: 14, border: ("1px solid " + g.color + "33") }}>
+              <span style={{ fontSize: "clamp(20px, 14vw, 26px)" }}>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🎖️"}</span>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", background: (g.color + "22"), border: ("2px solid " + g.color), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "clamp(18px, 13vw, 25px)" }}>{g.emoji}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: "#fff", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(16px, 12vw, 22px)" }}>{m.name}</div>
+                <div style={{ color: "#64748b", fontSize: "clamp(13px, 10vw, 20px)", fontFamily: "'Varela Round',sans-serif" }}>{s.correct}/{s.total} נכון · {p}%</div>
               </div>
-              <div style={{ textAlign:"center" }}>
-                <div style={{ color:g.color, fontFamily:"'Rubik',sans-serif", fontSize:"clamp(26px, 16vw, 32px)" }}>{s.points||0}</div>
-                <div style={{ color:"#475569", fontSize:"clamp(12px, 9vw, 18px)", fontFamily:"'Varela Round',sans-serif" }}>נקודות</div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ color: g.color, fontFamily: "'Rubik',sans-serif", fontSize: "clamp(26px, 16vw, 32px)" }}>{s.points || 0}</div>
+                <div style={{ color: "#475569", fontSize: "clamp(12px, 9vw, 18px)", fontFamily: "'Varela Round',sans-serif" }}>נקודות</div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {code && (
-        <div style={C.card}>
-          <div style={{ display:"flex", gap:0, marginBottom:10, background:"rgba(255,255,255,.06)", borderRadius:12, padding:3 }}>
-            {[{k:"challenge",l:"⚔️ אתגר זה"},{k:"mpts",l:"🏆 חודשי"},{k:"mavg",l:"⭐ איכות"}].map(({k,l}) => (
-              <button key={k} onClick={()=>setTab(k)} style={{ flex:1, padding:"7px", border:"none", borderRadius:10, cursor:"pointer", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 11vw, 21px)", background:tab===k?"rgba(124,58,237,.35)":"transparent", color:tab===k?"#c4b5fd":"#475569", transition:"all .2s" }}>{l}</button>
-            ))}
-          </div>
-          {(() => {
-            const rows = tab==="challenge" ? board : tab==="mpts" ? monthly.pts : monthly.avg;
-            const getVal = (r) => {
-              if (tab === "challenge") {
-                var timeStr = r.total_time ? (" \u26a1 " + Math.floor(r.total_time / 60) + ":" + String(r.total_time % 60).padStart(2, "0")) : "";
-                return r.family_pct + "%" + timeStr;
-              }
-              return tab === "mpts" ? r.monthly_points + "נק'" : r.monthly_avg + "%";
-            };
-            const getSub = (r) => tab==="mavg" ? ("(" + (r.monthly_games || 0) + " משחקים)") : "";
-            return (rows||[]).slice(0,8).map((r,i) => {
-              const isMe = r.family_name===familyName;
-              return (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", marginBottom:5, background:isMe?"rgba(167,139,250,.15)":"rgba(255,255,255,.03)", borderRadius:12, border:("1px solid " + (isMe?"#a78bfa44":"transparent")) }}>
-                  <span style={{ fontSize:"clamp(19px, 14vw, 25px)", minWidth:22 }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":(i+1 + ".")}</span>
-                  <div style={{ flex:1 }}>
-                    <div style={{ color:isMe?"#c4b5fd":"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)" }}>{r.family_name}{isMe?" ← אתם":""}</div>
-                    {getSub(r)&&<div style={{ color:"#475569", fontSize:"clamp(12px, 9vw, 18px)" }}>{getSub(r)}</div>}
-                  </div>
-                  <span style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 24px)" }}>{getVal(r)}</span>
-                </div>
-              );
-            });
-          })()}
-          {(tab==="challenge"?board:tab==="mpts"?monthly.pts:monthly.avg).length===0&&<div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", padding:"12px 0" }}>אתם הראשונים! 🎉</div>}
-        </div>
-      )}
-
-      {beatenBy && onRematch && (
-        <div style={{ ...C.card, background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.25)", textAlign:"center", marginBottom:14 }}>
-          <div style={{ fontSize:"clamp(32px, 19vw, 40px)", marginBottom:6 }}>⚔️</div>
-          <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", marginBottom:4 }}>
-            משפחת {beatenBy.name} עקפה אותכם!
-          </div>
-          <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 21px)", marginBottom:12 }}>
-            הם השיגו {beatenBy.score} נקודות. רוצים להחזיר?
-          </div>
-          <button onClick={onRematch} style={{ ...C.btnP, background:"linear-gradient(135deg,#f59e0b,#d97706)" }}>
-            🔥 אתגר חוזר — שאלות חדשות!
-          </button>
-        </div>
-      )}
-      {code && onShare && (
-        <button onClick={onShare} style={{ ...C.btnP, background:"linear-gradient(135deg,#16a34a,#15803d)", boxShadow:"0 4px 20px #16a34a55" }}>
-          📱 אתגרו משפחה אחרת!
-        </button>
-      )}
-      <button onClick={onSameTopic} style={C.btnP}>{pct < 100 ? "🔥 שפרו את הציון — שאלות חדשות!" : "🔄 עוד סיבוב על " + topic}</button>
-      <button onClick={onHome} style={C.btnS}>🎮 נושא אחר</button>
-    </div>
-  );
-}
-
-// ─── PAYPAL BUTTON ────────────────────────────────────────────────────────────
-function PayPalBtn({ planId, planType, familyName, onSuccess }) {
-  const containerRef = useRef(null); // שינינו ל-const
-
-  useEffect(function() {
-    if (!containerRef.current) return;
-
-    const scriptId = "paypal-sdk-script"; // שינינו ל-const
-    const existing = document.getElementById(scriptId);
-
-    const doRender = function() { // שינינו ל-const
-      if (!window.paypal || !containerRef.current) return;
-      containerRef.current.innerHTML = "";
-      window.paypal.Buttons({
-        style: { shape: "rect", color: "gold", layout: "vertical", label: "subscribe" },
-        createSubscription: function(data, actions) {
-          return actions.subscription.create({ plan_id: planId });
-        },
-        onApprove: function(data) {
-          saveSubscription(familyName, planType, data.subscriptionID);
-          if (onSuccess) onSuccess();
-        }
-      }).render(containerRef.current);
-    };
-
-    if (existing && window.paypal) { doRender(); return; }
-    if (existing) { existing.addEventListener("load", doRender); return; }
-
-    const s = document.createElement("script"); // שינינו ל-const
-    s.id = scriptId;
-    s.src = "https://www.paypal.com/sdk/js?client-id=" + PAYPAL_CLIENT_ID + "&vault=true&intent=subscription&currency=ILS";
-    s.setAttribute("data-sdk-integration-source", "button-factory");
-    s.onload = doRender;
-    document.head.appendChild(s);
-  }, [planId, familyName]);
-
-  return (
-    <div ref={containerRef} style={{ minHeight: 50 }}>
-      <div style={{ color: "#64748b", fontFamily: "'Varela Round',sans-serif", fontSize: 14, textAlign: "center", padding: 12 }}>
-        טוען PayPal...
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {code && onShare && (
+          <button onClick={onShare} style={{ ...C.btnP, background: "linear-gradient(135deg,#16a34a,#15803d)" }}>📱 שתפו את האתגר!</button>
+        )}
+        <button onClick={onSameTopic} style={C.btnP}>{pct < 100 ? "🔥 שפרו את הציון!" : "🔄 סיבוב נוסף"}</button>
+        <button onClick={onHome} style={C.btnS}>🎮 נושא אחר</button>
       </div>
     </div>
   );
 }
-function AppInner() {
-  const [family, setFamily]       = useState(null);        // loaded from LS on boot
-  const [screen, setScreen]       = useState("boot");      // boot|welcome|home|loading|editFamily|quiz|share|results
-  const [topic, setTopic]         = useState("");
-  const [quizData, setQuizData]   = useState(null);
-  const [scores, setScores]       = useState({});
-  const [code, setCode]           = useState("");
-  const [creatorPct, setCreatorPct] = useState(null);
-  const [isChallenger, setIsChallenger] = useState(false);
-  const [loadMsg, setLoadMsg]     = useState(LOAD_MSGS[0]);
-  const [error, setError]         = useState("");
-  const [blockedTopic, setBlockedTopic] = useState("");
-  const [sbOnline, setSbOnline]         = useState(true);
-  const [beatenBy, setBeatenBy]   = useState(null); // {name, score} של מי שעקף
-  const [showPushModal, setShowPushModal] = useState(false);
-  const [weeklyWinner, setWeeklyWinner] = useState(null);
-  const [closedResults, setClosedResults] = useState(null);
-  const [quizTime, setQuizTime] = useState(0); // {topic, results: [{rank, family_name, family_pct}]}
-
-  // boot: check localStorage + URL code
-  useEffect(function() {
-    // --- מנגנון עדכון אוטומטי (PWA Update) ---
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.addEventListener("controllerchange", function() {
-        window.location.reload();
-      });
-    }
-
-    // --- לוגיקת האתחול שלך ---
-    var saved = getFamily();
-    var urlCode = new URLSearchParams(window.location.search).get("code");
-
-    if (saved) {
-      if (!saved.members || !saved.members.length) {
-        sbSafe(async function() {
-          var r = await sbFetch("families?name=eq." + encodeURIComponent(saved.name) + "&select=*");
-          var dbMembers = (r && r[0] && r[0].members ? r[0].members : []).map(function(m) {
-             return { name: m.name, age: parseInt(m.age) || 10 };
-          });
-          if (dbMembers.length) {
-            var updated = { name: saved.name, members: dbMembers };
-            saveFamily(updated);
-            setFamily(updated);
-            if (urlCode) setTimeout(function() { handleJoinWithFamily(updated, urlCode); }, 100);
-            else setScreen("home");
-          } else {
-            setFamily(saved);
-            setScreen("home");
-          }
-        }, null, null);
-        return;
-      }
-      setFamily(saved);
-      registerPush(saved.name);
-      checkSubscription(saved.name);
-      syncDailyCount(saved.name);
-      getLatestWinner().then(function(w) { if (w) setWeeklyWinner(w); });
-      getMyClosedChallenges(saved.name).then(function(results) {
-        if (results && results.length > 0) {
-          var lastCode = results[0].code;
-          var lastTopic = results[0].topic;
-          var topResults = results.filter(function(r) { return r.code === lastCode; });
-          if (!LS.get("seen_result_" + lastCode)) {
-            setClosedResults({ code: lastCode, topic: lastTopic, results: topResults });
-          }
-        }
-      });
-      if (urlCode) {
-        setTimeout(function() { handleJoinWithFamily(saved, urlCode); }, 100);
-      } else {
-        setScreen("home");
-      }
-    } else {
-      if (urlCode) setCode(urlCode);
-      setScreen("welcome");
-    }
-  }, []);
-
-  const handleJoinWithFamily = async (fam, c) => {
-    const stop = startLoad();
-    try {
-      const room = await loadQuizByCode(c, setSbOnline);
-      if (!room) { stop(); setError("לא נמצא חידון עם קוד " + c); setScreen("home"); return; }
-      const played = await hasPlayedQuiz(c, fam.name, setSbOnline);
-      if (played) {
-        stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct); setScreen("alreadyPlayed"); return;
-      }
-      const validated = await buildQuiz(room.topic, fam.members);
-      stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
-      setQuizData(validated); setIsChallenger(true); setScreen("quiz");
-      window.history.replaceState({}, "", window.location.pathname);
-    } catch(e) { stop(); setError("שגיאה בטעינת החידון"); setScreen("home"); }
-  };
-
-  const startLoad = () => {
-    setScreen("loading"); setError("");
-    let mi = 0;
-    const iv = setInterval(() => setLoadMsg(LOAD_MSGS[mi++ % LOAD_MSGS.length]), 2000);
-    return () => clearInterval(iv);
-  };
-// ─── שיתוף לוגיקה: יצירת שאלות מויקיפדיה ───
-  const [shortArticleConfirm, setShortArticleConfirm] = useState(null); // {topic, resolve}
-
-  const buildQuiz = async (t, mems) => {
-    const wiki = await fetchWiki(t);
-    if (wiki.shortArticle) {
-      // שאל את המשתמש אם להמשיך
-      var shouldContinue = await new Promise(function(resolve) {
-        setShortArticleConfirm({ topic: t, resolve: resolve });
-      });
-      setShortArticleConfirm(null);
-      if (!shouldContinue) {
-        throw new Error("__cancel__");
-      }
-    }
-    const seed = Math.random().toString(36).slice(2,8);
-    const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
-    
-    // --- התיקון החדש: רף מינימום של 12 שאלות כדי למנוע יתרון לא הוגן ---
-    const minQuestions = 12;
-    const perMember = 4;
-    const targetCount = Math.max(minQuestions, mems.length * perMember);
-    
-    // מחזיר את כמות השאלות המבוקשת (או מה שיש אם המאמר קצר מאוד)
-    return data.slice(0, targetCount);
-  };
-
-  const [showUpsell, setShowUpsell] = useState(false);
-  const [upsellTab, setUpsellTab] = useState("family");
-
-  const checkDailyLimit = function() {
-    if (isPremium()) return true;
-    if (getDailyCount() >= DAILY_LIMIT) {
-      setUpsellTab("family");
-      setShowUpsell(true);
-      return false;
-    }
-    return true;
-  };
-  const handlePlay = async (t) => {
-    if (!checkDailyLimit()) return;
-    setTopic(t); setIsChallenger(false); setCreatorPct(null);
-    const stop = startLoad();
-    try {
-      const validated = await buildQuiz(t, family.members);
-      incDailyCountDB(family.name);
-      stop(); setQuizData(validated); setScreen("quiz");
-    } catch(e) {
-      stop();
-      if (e.message === "__cancel__") { setScreen("home"); return; }
-      setError(e.message || "שגיאה"); setScreen("home");
-    }
-  };
-
-  const handleJoin = async (c) => {
-    if (!checkDailyLimit()) return;
-    const stop = startLoad();
-    try {
-      const room = await loadQuizByCode(c, setSbOnline);
-      if (!room) { stop(); setError("לא נמצא חידון עם קוד " + c); setScreen("home"); return; }
-      const played = await hasPlayedQuiz(c, family.name, setSbOnline);
-      if (played) {
-        stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct); setScreen("alreadyPlayed"); return;
-      }
-      const validated = await buildQuiz(room.topic, family.members);
-      incDailyCountDB(family.name);
-      stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
-      setQuizData(validated); setIsChallenger(true); setScreen("quiz");
-      window.history.replaceState({}, "", window.location.pathname);
-    } catch(e) { stop(); setError("שגיאה בטעינת החידון"); setScreen("home"); }
-  };
-const handleFinish = async (s, totalSeconds) => {
-    setScores(s);
-    
-    // --- חישוב שובר השוויון ההוגן: זמן ממוצע לשאלה ---
-    const qCount = Object.keys(s).length || 1;
-    const avgSpeed = totalSeconds / qCount;
-    setQuizTime(avgSpeed); 
-
-    const pct = fp(family.members, s);
-    const rawScore = calcRawScore(family.members, s);
-
-    try {
-      if (isChallenger) {
-        // שימוש ב-avgSpeed בכל השמירות
-        var updated = await updateChallenge(code, family.name, pct, avgSpeed, null);
-        if (!updated) await saveChallenge(code, family.name, pct, avgSpeed, null).catch(function(){});
-        
-        saveFamilyChallenge(code, family.name, null).catch(function(){});
-        upsertScore(family.name, rawScore, pct, avgSpeed).catch(function(){});
-        
-        notifyBeatenFamilies(code, family.name, pct, topic);
-        if (creatorPct !== null && pct > creatorPct) setBeatenBy(null);
-        setScreen("results");
-      } else {
-        var newCode = makeCode();
-        setCode(newCode);
-        await saveQuizRoom(newCode, topic, family.name, pct, avgSpeed);
-        await saveFamilyChallenge(newCode, family.name, null);
-        await upsertScore(family.name, rawScore, pct, avgSpeed);
-        setScreen("results");
-      }
-    } catch(e) {
-      console.error(e);
-      setScreen("results");
-    }
-  };  const handleSameTopic = async () => {
-    if (!checkDailyLimit()) return;
-    const stop = startLoad();
-    try {
-      const validated = await buildQuiz(topic, family.members);
-      incDailyCountDB(family.name);
-      stop(); setQuizData(validated); setIsChallenger(false); setCreatorPct(null); setScreen("quiz");
-    } catch(e) { stop(); setError(e.message); setScreen("home"); }
-  };
-
-  const handleRematch = async () => {
-    if (!checkDailyLimit()) return;
-    const stop = startLoad();
-    try {
-      const validated = await buildQuiz(topic, family.members);
-      incDailyCountDB(family.name);
-      const newCode = makeCode();
-      setCode(newCode);
-      stop(); setQuizData(validated); setIsChallenger(false); setBeatenBy(null); setScreen("quiz");
-    } catch(e) { stop(); setError(e.message); setScreen("home"); }
-  };
-
-  // שחק שוב את אותו אתגר — שאלות חדשות, עדכון ציון קיים
-  const handleRetryChallenge = async () => {
-    if (!checkDailyLimit()) return;
-    const stop = startLoad();
-    try {
-      const validated = await buildQuiz(blockedTopic || topic, family.members);
-      incDailyCountDB(family.name);
-      stop(); setTopic(blockedTopic || topic); setQuizData(validated); setIsChallenger(true); setScreen("quiz");
-    } catch(e) { stop(); setError(e.message); setScreen("home"); }
-  };
-
-  const handleWelcomeDone = (f) => {
-    setFamily(f);
-    registerPush(f.name);
-    if (code) { setTimeout(() => handleJoinWithFamily(f, code), 100); }
-    else setScreen("home");
-  };
-  const handleEditSave = (f) => {
-    saveFamily(f); setFamily(f);
-    updateFamilyMembers(f.name, f.pin, f.members, null);
-    setScreen("home");
-  };
-  const handleDeleteFamily = () => { clearFamily(); setFamily(null); setScreen("welcome"); };
-  const handleLogout = () => { clearFamily(); setFamily(null); setScreen("welcome"); };
-
-  if (screen === "boot") return <div style={{ minHeight:"100vh", background:"#05050f" }} />;
-
-  const pct = fp(family?.members||[], scores);
-
-  return (
-    <>
-      <style>{"@keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:0}}@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}@keyframes floatUp{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-110px) scale(1.6)}}@keyframes fadeSpot{0%,80%{opacity:1}100%{opacity:0;pointer-events:none}}@keyframes popIn{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}@keyframes correctPulse{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}"}</style>
-
-      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#05050f 0%,#0f172a 40%,#1a1540 70%,#0a0a18 100%)", padding:"clamp(16px, 3vw, 40px) clamp(16px, 4vw, 60px) 80px", display:"flex", flexDirection:"column", alignItems:"center" }}>
-        {!sbOnline && (
-          <div style={{ width:"100%", maxWidth:900, background:"rgba(239,68,68,.12)", border:"1px solid rgba(239,68,68,.2)", borderRadius:12, padding:"8px 14px", marginBottom:10, color:"#f87171", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", textAlign:"center" }}>
-            ⚠️ מצב לא מקוון — לוח התוצאות לא זמין כרגע
-          </div>
-        )}
-        {error && (
-          <div style={{ width:"100%", maxWidth:900, background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)", borderRadius:12, padding:"10px 14px", marginBottom:12, color:"#f87171", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", textAlign:"center" }}>
-            ⚠️ {error} <button onClick={()=>setError("")} style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer", marginRight:8, fontSize:"clamp(19px, 14vw, 25px)" }}>×</button>
-          </div>
-        )}
-
-        <div style={{ width:"100%", maxWidth:900 }}>
-          {screen==="welcome"      && <WelcomeScreen onDone={handleWelcomeDone} />}
-          {screen==="home"         && family && <HomeScreen family={family} onPlay={handlePlay} onJoin={handleJoin} onEditFamily={()=>setScreen("editFamily")} onLogout={handleLogout} onSetOnline={setSbOnline} />}
-          {screen==="editFamily"   && family && <EditFamilyScreen family={family} onSave={handleEditSave} onBack={()=>setScreen("home")} onDelete={handleDeleteFamily} />}
-          {screen==="loading"      && <LoadingScreen msg={loadMsg} emoji={te(topic)||"📖"} />}
-          {screen==="alreadyPlayed"&& (
-            <div style={{ ...C.card, textAlign:"center", animation:"slideIn .4s ease" }}>
-              <div style={{ fontSize:"clamp(56px, 28vw, 67px)", marginBottom:12 }}>🔄</div>
-              <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(24px, 16vw, 31px)", margin:"0 0 8px" }}>כבר שיחקתם את האתגר הזה!</h2>
-              <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 20px)", margin:"0 0 20px" }}>
-                רוצים לשפר את הציון? תקבלו שאלות חדשות והציון יתעדכן!
-              </p>
-              <button onClick={handleRetryChallenge} style={C.btnP}>🔥 שפרו את הציון!</button>
-              <button onClick={() => handlePlay(blockedTopic)} style={C.btnS}>🎲 חידון חדש על {blockedTopic}</button>
-              <button onClick={() => setScreen("home")} style={C.btnS}>🎮 בחרו נושא אחר</button>
-            </div>
-          )}
           {screen==="quiz"         && quizData && family && <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />}
           {screen==="share"        && <ShareScreen code={code} topic={topic} familyName={family?.name} pct={pct} onContinue={()=>setScreen("results")} />}
           {screen==="results" && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} quizTime={quizTime} onHome={()=>setScreen("home")} onSameTopic={code ? handleRetryChallenge : handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} beatenBy={beatenBy} onRematch={handleRematch} />}        </div>
