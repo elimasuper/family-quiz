@@ -2192,70 +2192,63 @@ const handleFinish = async (s, totalSeconds) => {
           </div>
         </div>
       )}
-      {shortArticleConfirm && (
+    {/* מודאל מאמר קצר - הגנה כפולה */}
+   {/* מודאל מאמר קצר */}
+      {shortArticleConfirm?.topic && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"1px solid rgba(251,191,36,.3)", borderRadius:24, padding:"clamp(20px,4vw,32px)", maxWidth:380, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(48px, 24vw, 56px)", marginBottom:12 }}>📄</div>
             <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 8px" }}>מאמר קצר</h2>
-            <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", margin:"0 0 20px", lineHeight:1.6 }}>הערך על {shortArticleConfirm.topic} קצר יחסית — ייתכנו חזרות על שאלות.</p>
-            <button onClick={function() { shortArticleConfirm.resolve(true); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🎮 בואו נשחק!</button>
-            <button onClick={function() { shortArticleConfirm.resolve(false); }} style={{ width:"100%", padding:"10px", background:"none", border:"1px solid rgba(255,255,255,0.12)", borderRadius:16, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>🔄 בחירת נושא אחר</button>
+            <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", margin:"0 0 20px", lineHeight:1.6 }}>
+              הערך על **{shortArticleConfirm?.topic}** קצר יחסית — ייתכנו חזרות על שאלות.
+            </p>
+            <button onClick={function() { shortArticleConfirm?.resolve(true); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🎮 בואו נשחק!</button>
+            <button onClick={function() { shortArticleConfirm?.resolve(false); }} style={{ width:"100%", padding:"10px", background:"none", border:"1px solid rgba(255,255,255,0.12)", borderRadius:16, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>🔄 בחירת נושא אחר</button>
           </div>
         </div>
       )}
+
+      {/* מודאל מנצח חודשי */}
       {weeklyWinner && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1001, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(64px, 30vw, 80px)", marginBottom:8, animation:"bounce 1.5s ease infinite" }}>🏆</div>
-            
-            {/* כותרת דינמית: יחיד או רבים */}
             <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(24px, 16vw, 32px)", margin:"0 0 6px" }}>
-              {family && family.members && family.members.length > 1 ? "אלופי החודש!" : "אלוף החודש!"}
+              {family?.members?.length > 1 ? "אלופי החודש!" : "אלוף החודש!"}
             </h2>
-
             <p style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 4px" }}>
-              משפחת {weeklyWinner.family_name}
+              משפחת {weeklyWinner?.family_name || ""}
             </p>
-
             <p style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 4px" }}>
-              {weeklyWinner.score} נקודות
+              {weeklyWinner?.score || 0} נקודות
             </p>
-
             <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>
               🎉 כל הכבוד! הלוח התאפס — מתחילים חודש חדש
             </p>
-
-            <button onClick={function() { markWinnerAnnounced(weeklyWinner.id); setWeeklyWinner(null); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#fbbf24,#f59e0b)", border:"none", borderRadius:16, color:"#1a1540", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #fbbf2455" }}>
+            <button onClick={function() { if(weeklyWinner?.id) markWinnerAnnounced(weeklyWinner.id); setWeeklyWinner(null); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#fbbf24,#f59e0b)", border:"none", borderRadius:16, color:"#1a1540", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #fbbf2455" }}>
               🎮 בואו נתחיל חודש חדש!
             </button>
           </div>
         </div>
       )}
+
+      {/* מודאל תוצאות אתגר שנסגר */}
+      {closedResults?.topic && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1002, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(167,139,250,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(48px, 24vw, 60px)", marginBottom:8 }}>⚔️</div>
             <h2 style={{ color:"#c4b5fd", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 4px" }}>אתגר נסגר!</h2>
-            <p style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 24px)", margin:"0 0 16px" }}>{closedResults.topic}</p>
-            {closedResults.results.map(function(r) {
+            <p style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 24px)", margin:"0 0 16px" }}>{closedResults?.topic}</p>
+            {closedResults?.results?.map(function(r, i) {
               var medal = r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉";
               var color = r.rank === 1 ? "#fbbf24" : r.rank === 2 ? "#94a3b8" : "#f59e0b";
               var isMe = family && r.family_name === family.name;
               return (
-                <div key={r.rank} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", marginBottom:6, background:isMe ? "rgba(167,139,250,.15)" : "rgba(255,255,255,.05)", border:("1px solid " + (isMe ? "rgba(167,139,250,.3)" : "rgba(255,255,255,.08)")), borderRadius:14 }}>
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", marginBottom:6, background:isMe ? "rgba(167,139,250,.15)" : "rgba(255,255,255,.05)", border:("1px solid " + (isMe ? "rgba(167,139,250,.3)" : "rgba(255,255,255,.08)")), borderRadius:14 }}>
                   <span style={{ fontSize:"clamp(24px, 16vw, 30px)" }}>{medal}</span>
                   <span style={{ flex:1, color:color, fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", textAlign:"right" }}>{"משפחת " + r.family_name}</span>
                   <span style={{ color:"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.family_pct + "%"}</span>
                 </div>
               );
             })}
-            <button onClick={function() { LS.set("seen_result_" + closedResults.code, true); setClosedResults(null); }} style={{ width:"100%", marginTop:14, padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55" }}>👍 סגור</button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-export default function App() {
-  return <ErrorBoundary><AppInner /></ErrorBoundary>;
-}
+            <button onClick={function() { if(closedResults?.code) LS.set("seen_result_" + closedResults.code, true); setClosedResults(null); }} style={{ width:"100%", marginTop:14, padding:"14px", background:"linear-gradient(135deg,#7c
