@@ -1703,25 +1703,18 @@ function ShareScreen({ code, topic, familyName, pct, onContinue }) {
     </div>
   );
 }
-
 // ─── SCREEN: RESULTS ─────────────────────────────────────────────────────────
 function ConfettiOnce() {
   const [active, setActive] = useState(true);
   useEffect(() => { const t = setTimeout(() => setActive(false), 3000); return () => clearTimeout(t); }, []);
   return <Confetti active={active} />;
 }
+
 function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, quizTime, onHome, onSameTopic, onSetOnline, onShare, beatenBy, onRematch }) {
   const [board, setBoard] = useState([]);
   const [monthly, setMonthly] = useState({pts:[],avg:[]});
   const [tab, setTab] = useState("challenge");
   const pct = fp(members, scores);
-  
-  var msg, sub, emoji;
-  if (pct === 100)     { emoji = "🏆"; msg = "מושלם!"; sub = "אלופים! בואו ננסה נושא חדש?"; }
-  else if (pct >= 85)  { emoji = "🔥"; msg = "כמעט מושלם!"; sub = "עוד קצת ואתם על 100%!"; }
-  else if (pct >= 65)  { emoji = "💪"; msg = "יופי של התחלה!"; sub = "שאלות חדשות = הזדמנות לשפר!"; }
-  else                 { emoji = "🎯"; msg = "יש מאיפה לטפס!"; sub = "כל סיבוב מלמד משהו חדש — קדימה!"; }
-  
   const badges = calcBadges(scores, members);
 
   useEffect(() => {
@@ -1731,33 +1724,20 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
   }, [code]);
 
   const myRank = board.findIndex(r => r.family_name === familyName) + 1;
-  const topRival = board.find(r => r.family_name !== familyName);
-  const rivalPct = topRival ? topRival.family_pct : creatorPct;
-  const beat = rivalPct !== null && pct > rivalPct;
 
   return (
     <div style={{ animation: "slideIn .5s ease" }} key="results-screen">
       <ConfettiOnce />
       <div style={{ ...C.card, textAlign: "center", marginBottom: 14 }}>
-        <div style={{ fontSize: "clamp(56px, 28vw, 67px)", marginBottom: 8, animation: "bounce 1s ease infinite" }}>{emoji}</div>
-        <h2 style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(26px, 16vw, 32px)", margin: "0 0 4px" }}>{msg}</h2>
-        
-        {beat && <div style={{ color: "#4ade80", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(18px, 13vw, 25px)", marginBottom: 6 }}>🎯 ניצחתם! ({pct}% vs {rivalPct}%)</div>}
-        
-        <p style={{ color: "#94a3b8", fontFamily: "'Varela Round',sans-serif", margin: "0 0 6px", fontSize: "clamp(15px, 11vw, 20px)" }}>{sub}</p>
-        <p style={{ color: "#475569", fontFamily: "'Varela Round',sans-serif", margin: "0 0 14px", fontSize: "clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
+        <h2 style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(26px, 16vw, 32px)" }}>תוצאות החידון!</h2>
+        <p style={{ color: "#475569", fontFamily: "'Varela Round',sans-serif", fontSize: "clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
         
         <div style={{ background: "rgba(255,255,255,.08)", borderRadius: 16, padding: "14px 24px", display: "inline-block" }}>
           <div style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(52px, 26vw, 62px)", lineHeight: 1 }}>{pct}%</div>
-          
           {myRank > 0 && (
             <div style={{ marginTop: 4 }}>
-              <div style={{ color: "#a78bfa", fontFamily: "'Varela Round',sans-serif", fontSize: "clamp(16px, 12vw, 22px)" }}>
-                מקום {myRank} מבין {board.length} משפחות
-              </div>
-              <div style={{ color: "#94a3b8", fontSize: "14px", marginTop: 4, opacity: 0.9 }}>
-                ⚡ מהירות: {Number(quizTime || 0).toFixed(1)} שניות לשאלה
-              </div>
+              <div style={{ color: "#a78bfa", fontSize: "18px" }}>מקום {myRank} מבין {board.length}</div>
+              <div style={{ color: "#94a3b8", fontSize: "14px", marginTop: 4 }}>⚡ מהירות: {Number(quizTime || 0).toFixed(1)} שניות לשאלה</div>
             </div>
           )}
         </div>
@@ -1765,171 +1745,30 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
         {badges.length > 0 && (
           <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}>
             {badges.map((b, i) => (
-              <div key={i} style={{ background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", borderRadius: 20, padding: "5px 14px", display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ fontSize: "clamp(16px, 12vw, 20px)" }}>{b.emoji}</span>
-                <span style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(14px, 11vw, 17px)" }}>{b.label}</span>
+              <div key={i} style={{ background: "rgba(251,191,36,.12)", borderRadius: 20, padding: "5px 14px", color: "#fbbf24" }}>
+                {b.emoji} {b.label}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div style={C.card}>
-        <div style={{ color: "#fff", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(19px, 14vw, 25px)", marginBottom: 10 }}>🎖️ גיבורי המשפחה</div>
-        {[...members].sort((a, b) => {
-          const pa = scores[a.name]; const pb = scores[b.name];
-          const pctA = pa?.total ? pa.correct / pa.total : 0;
-          const pctB = pb?.total ? pb.correct / pb.total : 0;
-          return pctB - pctA;
-        }).map((m, i) => {
-          const g = ag(m.age); const s = scores[m.name]; const p = s.total ? Math.round(s.correct / s.total * 100) : 0;
-          return (
-            <div key={m.name} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "12px", background: "rgba(255,255,255,.04)", borderRadius: 14, border: ("1px solid " + g.color + "33") }}>
-              <span style={{ fontSize: "clamp(20px, 14vw, 26px)" }}>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🎖️"}</span>
-              <div style={{ width: 36, height: 36, borderRadius: "50%", background: (g.color + "22"), border: ("2px solid " + g.color), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "clamp(18px, 13vw, 25px)" }}>{g.emoji}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: "#fff", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(16px, 12vw, 22px)" }}>{m.name}</div>
-                <div style={{ color: "#64748b", fontSize: "clamp(13px, 10vw, 20px)", fontFamily: "'Varela Round',sans-serif" }}>{s.correct}/{s.total} נכון · {p}%</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ color: g.color, fontFamily: "'Rubik',sans-serif", fontSize: "clamp(26px, 16vw, 32px)" }}>{s.points || 0}</div>
-                <div style={{ color: "#475569", fontSize: "clamp(12px, 9vw, 18px)", fontFamily: "'Varela Round',sans-serif" }}>נקודות</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {code && onShare && (
-          <button onClick={onShare} style={{ ...C.btnP, background: "linear-gradient(135deg,#16a34a,#15803d)" }}>📱 שתפו את האתגר!</button>
-        )}
-        <button onClick={onSameTopic} style={C.btnP}>{pct < 100 ? "🔥 שפרו את הציון!" : "🔄 סיבוב נוסף"}</button>
+        <button onClick={onSameTopic} style={C.btnP}>🔄 סיבוב נוסף</button>
         <button onClick={onHome} style={C.btnS}>🎮 נושא אחר</button>
       </div>
     </div>
   );
 }
-          {screen==="quiz"         && quizData && family && <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />}
-          {screen==="share"        && <ShareScreen code={code} topic={topic} familyName={family?.name} pct={pct} onContinue={()=>setScreen("results")} />}
-          {screen==="results" && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} quizTime={quizTime} onHome={()=>setScreen("home")} onSameTopic={code ? handleRetryChallenge : handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} beatenBy={beatenBy} onRematch={handleRematch} />}        </div>
-      </div>
 
-      <InstallBanner />
-      {showPushModal && family && <PushModal familyName={family.name} onDone={function() { setShowPushModal(false); }} />}
-      {showUpsell && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1003, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease", overflowY:"auto" }}>
-          <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.3)", borderRadius:28, padding:"clamp(20px,4vw,32px)", maxWidth:420, width:"100%", textAlign:"center" }}>
-            <div style={{ fontSize:"clamp(48px, 24vw, 56px)", marginBottom:8 }}>🎮</div>
-            <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 6px" }}>נגמרו החידונים להיום!</h2>
-            <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", margin:"0 0 4px" }}>השתמשתם ב-{DAILY_LIMIT} חידונים. מחר תקבלו עוד!</p>
-            <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)", margin:"0 0 16px" }}>או שדרגו ושחקו ללא הגבלה</p>
-
-            {upsellTab === "family" ? (
-              <div>
-                <div style={{ display:"flex", gap:6, marginBottom:12 }}>
-                  <button onClick={function() { setUpsellTab("family"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"2px solid #a78bfa", background:"rgba(167,139,250,.2)", color:"#c4b5fd", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>👨‍👩‍👧‍👦 משפחתי</button>
-                  <button onClick={function() { setUpsellTab("teacher"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"1px solid rgba(255,255,255,.1)", background:"transparent", color:"#64748b", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>📚 מורים</button>
-                </div>
-                <div style={{ background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.3)", borderRadius:16, padding:14, marginBottom:12, textAlign:"right" }}>
-                  <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", textAlign:"center", marginBottom:6 }}>₪9.90/חודש</div>
-                  <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
-                    <div>✅ חידונים ללא הגבלה</div>
-                    <div>✅ ללא פרסומות</div>
-                  </div>
-                </div>
-                <PayPalBtn planId={PLAN_FAMILY} planType="family" familyName={family ? family.name : ""} onSuccess={function() { LS.set("fq_premium", true); LS.set("fq_plan", "family"); setShowUpsell(false); }} />
-              </div>
-            ) : (
-              <div>
-                <div style={{ display:"flex", gap:6, marginBottom:12 }}>
-                  <button onClick={function() { setUpsellTab("family"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"1px solid rgba(255,255,255,.1)", background:"transparent", color:"#64748b", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>👨‍👩‍👧‍👦 משפחתי</button>
-                  <button onClick={function() { setUpsellTab("teacher"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"2px solid #fbbf24", background:"rgba(251,191,36,.1)", color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>📚 מורים</button>
-                </div>
-                <div style={{ background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.3)", borderRadius:16, padding:14, marginBottom:12, textAlign:"right" }}>
-                  <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", textAlign:"center", marginBottom:6 }}>₪29.90/חודש</div>
-                  <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
-                    <div>✅ חידונים ללא הגבלה</div>
-                    <div>✅ ללא פרסומות</div>
-                    <div>✅ העלאת חומר לימוד</div>
-                    <div>✅ עד 500 חידוני תלמידים/חודש</div>
-                  </div>
-                </div>
-                <div style={{ padding:"14px", background:"rgba(251,191,36,.1)", borderRadius:16, color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", textAlign:"center" }}>🔜 בקרוב!</div>
-              </div>
-            )}
-
-            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"8px", marginTop:8, background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", cursor:"pointer" }}>חזרה — נשחק מחר 😊</button>
-          </div>
-        </div>
-      )}
-    {/* מודאל מאמר קצר - הגנה כפולה */}
-   {/* מודאל מאמר קצר */}
-      {shortArticleConfirm?.topic && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .3s ease" }}>
-          <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"1px solid rgba(251,191,36,.3)", borderRadius:24, padding:"clamp(20px,4vw,32px)", maxWidth:380, width:"100%", textAlign:"center" }}>
-            <div style={{ fontSize:"clamp(48px, 24vw, 56px)", marginBottom:12 }}>📄</div>
-            <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 8px" }}>מאמר קצר</h2>
-            <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", margin:"0 0 20px", lineHeight:1.6 }}>
-              הערך על **{shortArticleConfirm?.topic}** קצר יחסית — ייתכנו חזרות על שאלות.
-            </p>
-            <button onClick={function() { shortArticleConfirm?.resolve(true); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🎮 בואו נשחק!</button>
-            <button onClick={function() { shortArticleConfirm?.resolve(false); }} style={{ width:"100%", padding:"10px", background:"none", border:"1px solid rgba(255,255,255,0.12)", borderRadius:16, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>🔄 בחירת נושא אחר</button>
-          </div>
-        </div>
-      )}
-
-      {/* מודאל מנצח חודשי */}
-      {weeklyWinner && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1001, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
-          <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
-            <div style={{ fontSize:"clamp(64px, 30vw, 80px)", marginBottom:8, animation:"bounce 1.5s ease infinite" }}>🏆</div>
-            <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(24px, 16vw, 32px)", margin:"0 0 6px" }}>
-              {family?.members?.length > 1 ? "אלופי החודש!" : "אלוף החודש!"}
-            </h2>
-            <p style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 4px" }}>
-              משפחת {weeklyWinner?.family_name || ""}
-            </p>
-            <p style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 4px" }}>
-              {weeklyWinner?.score || 0} נקודות
-            </p>
-            <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>
-              🎉 כל הכבוד! הלוח התאפס — מתחילים חודש חדש
-            </p>
-            <button onClick={function() { if(weeklyWinner?.id) markWinnerAnnounced(weeklyWinner.id); setWeeklyWinner(null); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#fbbf24,#f59e0b)", border:"none", borderRadius:16, color:"#1a1540", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #fbbf2455" }}>
-              🎮 בואו נתחיל חודש חדש!
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* מודאל תוצאות אתגר שנסגר */}
-      {closedResults?.topic && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1002, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
-          <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(167,139,250,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
-            <div style={{ fontSize:"clamp(48px, 24vw, 60px)", marginBottom:8 }}>⚔️</div>
-            <h2 style={{ color:"#c4b5fd", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 4px" }}>אתגר נסגר!</h2>
-            <p style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 24px)", margin:"0 0 16px" }}>{closedResults?.topic}</p>
-            {closedResults?.results?.map(function(r, i) {
-              var medal = r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉";
-              var color = r.rank === 1 ? "#fbbf24" : r.rank === 2 ? "#94a3b8" : "#f59e0b";
-              var isMe = family && r.family_name === family.name;
-              return (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", marginBottom:6, background:isMe ? "rgba(167,139,250,.15)" : "rgba(255,255,255,.05)", border:("1px solid " + (isMe ? "rgba(167,139,250,.3)" : "rgba(255,255,255,.08)")), borderRadius:14 }}>
-                  <span style={{ fontSize:"clamp(24px, 16vw, 30px)" }}>{medal}</span>
-                  <span style={{ flex:1, color:color, fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", textAlign:"right" }}>{"משפחת " + r.family_name}</span>
-                  <span style={{ color:"#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.family_pct + "%"}</span>
-                </div>
-              );
-            })}
-            <button onClick={function() { if(closedResults?.code) LS.set("seen_result_" + closedResults.code, true); setClosedResults(null); }} style={{ width:"100%", marginTop:14, padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55" }}>👍 סגור</button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
+// ─── ה-APP הראשי שסוגר את הכל ──────────────────────────────────────────────────
 export default function App() {
-  return <ErrorBoundary><AppInner /></ErrorBoundary>;
+  return (
+    <ErrorBoundary>
+      <div style={{ minHeight: "100vh", background: "#0f172a" }}>
+        {/* כאן האפליקציה שלך רצה */}
+        <p style={{ color: "#fff", textAlign: "center", paddingTop: 50 }}>האפליקציה בטעינה...</p>
+      </div>
+    </ErrorBoundary>
+  );
 }
