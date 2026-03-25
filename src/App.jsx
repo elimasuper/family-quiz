@@ -355,51 +355,72 @@ function calcBadges(scores, members, isChampion=false, streak=0) {
   if (timerMembers.length) {
     const avgSecs = timerMembers.reduce((s,m) => s + (scores[m.name]?.timerSum||0) / Math.max(scores[m.name]?.timerCount||1,1), 0) / timerMembers.length;
     const maxTimer = Math.max.apply(null, timerMembers.map(function(m) { return ag(m.age).timer; }));
-    if (avgSecs >= maxTimer * 0.7) badges.push({ emoji:"⚡", label:"שיא מהירות!" });
-    else if (avgSecs >= maxTimer * 0.4) badges.push({ emoji:"⚡", label:"מהיר כברק!" });
+// שינינו את >= ל- <=
+if (avgSecs > 0 && avgSecs <= maxTimer * 0.3) badges.push({ emoji:"⚡", label:"שיא מהירות!" });
+else if (avgSecs > 0 && avgSecs <= maxTimer * 0.6) badges.push({ emoji:"⚡", label:"מהיר כברק!" });
   }
   return badges;
 }
 
 async function getMonthlyBoard(setOnline) {
   return sbSafe(async () => {
-    const [pts, avg] = await Promise.all([
-      sbFetch("family_scores?select=family_name,monthly_points&order=monthly_points.desc&limit=10"),
-      sbFetch("family_scores?select=family_name,monthly_avg,monthly_games&order=monthly_avg.desc&limit=10"),
-    ]);
-    return { pts: pts||[], avg: avg||[] };
-  }, { pts:[], avg:[] }, setOnline);
+    // הוספנו את time_taken ב-select וגם ב-order (סדר עולה - זמן נמוך יותר זה טוב יותר)
+    const data = await sbFetch("family_scores?select=family_name,monthly_medal_points,gold_medals,silver_medals,bronze_medals,time_taken&order=monthly_medal_points.desc,time_taken.asc&limit=20");
+    return data;
+  }, [], setOnline);
 }
 
-async function upsertScore(familyName, rawScore, pct, setOnline) {
+async function upsertScore(familyName, rawScore, pct, avgSpeed, setOnline) {
   return sbSafe(async () => {
     const ex = await sbFetch(("family_scores?family_name=eq." + encodeURIComponent(familyName) + "&select=*"));
     const today = todayStr();
     const thisMonth = today.slice(0,7); // "2026-03"
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+
     if (ex && ex.length > 0) {
       const r = ex[0];
       let streak = r.streak;
       if (r.last_played === yesterday) streak += 1;
       else if (r.last_played !== today) streak = 1;
-      // חודשי: אפס אם חודש חדש
+
       const sameMonth = (r.last_month || "") === thisMonth;
       const mGames = sameMonth ? (r.monthly_games||0)+1 : 1;
       const mPoints = sameMonth ? (r.monthly_points||0)+rawScore : rawScore;
       const mAvg = sameMonth ? Math.round(((r.monthly_avg||0)*(mGames-1)+pct)/mGames) : pct;
+
       await sbFetch(("family_scores?family_name=eq." + encodeURIComponent(familyName)), {
         method: "PATCH", prefer: "return=minimal",
-        body: JSON.stringify({ weekly_points: rawScore, total_games: r.total_games+1, streak, last_played: today, last_month: thisMonth, monthly_points: mPoints, monthly_games: mGames, monthly_avg: mAvg }),
+        body: JSON.stringify({ 
+          weekly_points: rawScore, 
+          total_games: r.total_games+1, 
+          streak, 
+          last_played: today, 
+          last_month: thisMonth, 
+          monthly_points: mPoints, 
+          monthly_games: mGames, 
+          monthly_avg: mAvg,
+          time_taken: avgSpeed // <-- הוספנו את זה כאן לעדכון
+        }),
       });
     } else {
       await sbFetch("family_scores", {
         method: "POST", prefer: "return=minimal",
-        body: JSON.stringify({ family_name: familyName, weekly_points: rawScore, total_games: 1, streak: 1, last_played: today, last_month: thisMonth, monthly_points: rawScore, monthly_games: 1, monthly_avg: pct }),
+        body: JSON.stringify({ 
+          family_name: familyName, 
+          weekly_points: rawScore, 
+          total_games: 1, 
+          streak: 1, 
+          last_played: today, 
+          last_month: thisMonth, 
+          monthly_points: rawScore, 
+          monthly_games: 1, 
+          monthly_avg: pct,
+          time_taken: avgSpeed // <-- והוספנו את זה כאן ליצירה חדשה
+        }),
       });
     }
   }, null, setOnline);
 }
-
 // ─── WIKIPEDIA ────────────────────────────────────────────────────────────────
 const ag = (age) => {
   const a = parseInt(age) || 99;
@@ -863,7 +884,7 @@ async function validateQuestions(quizData, wikiText, topicTitle) {
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-const PRAISE = ["בול! 🎯","יאללה! 🔥","חזק! 💥","אחלה! 🌟","בדיוק! ✨","וואלה! 🧠","קלף! 🎉"];
+const PRAISE = ["בול! 🎯","יאללה! 🔥","חזק! 💥","אחלה! 🌟","בדיוק! ✨","וואלה! 🧠","יופי! 🎉"];
 const MISS   = ["אופס! 😅","קרוב! 💪","בסיבוב הבא 🎯","לא נורא! 🔥"];
 const rnd    = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1357,7 +1378,14 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                   <span style={{ fontSize:"clamp(18px, 13vw, 24px)", minWidth:28 }}>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : ((i + 1) + ".")}</span>
                   <span style={{ flex:1, color:isMe ? "#c4b5fd" : "#fff", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 19px)" }}>{r.family_name}{isMe ? " (אתם)" : ""}</span>
                   <span style={{ color:"#94a3b8", fontSize:"clamp(12px, 9vw, 15px)", fontFamily:"'Varela Round',sans-serif" }}>{r.gold_medals ? ("🥇" + r.gold_medals + " ") : ""}{r.silver_medals ? ("🥈" + r.silver_medals + " ") : ""}{r.bronze_medals ? ("🥉" + r.bronze_medals) : ""}</span>
-                  <span style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>{r.monthly_medal_points}נק'</span>
+                 <div style={{ textAlign: "left", display: "flex", flexDirection: "column", alignItems: "flex-end", minWidth: "65px" }}>
+  <span style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(16px, 12vw, 20px)", lineHeight: 1 }}>
+    {r.monthly_medal_points}נק'
+  </span>
+  <span style={{ color: "#64748b", fontSize: "10px", marginTop: "4px", whiteSpace: "nowrap" }}>
+    ⏱️ {Number(r.time_taken || 0).toFixed(1)} שנ'
+  </span>
+</div>
                 </div>
               );
             })}
@@ -1683,7 +1711,7 @@ function ConfettiOnce() {
   return <Confetti active={active} />;
 }
 
-function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, onHome, onSameTopic, onSetOnline, onShare, beatenBy, onRematch }) {
+function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, quizTime, onHome, onSameTopic, onSetOnline, onShare, beatenBy, onRematch }) {
   const [board, setBoard] = useState([]);
   const [monthly, setMonthly] = useState({pts:[],avg:[]});
   const [tab, setTab] = useState("challenge");
@@ -1719,8 +1747,31 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
         <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", margin:"0 0 14px", fontSize:"clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
         <div style={{ background:"rgba(255,255,255,.08)", borderRadius:16, padding:"14px 24px", display:"inline-block" }}>
           <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{pct}%</div>
-          {myRank>0&&<div style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", marginTop:4 }}>מקום {myRank} מבין {board.length} משפחות</div>}
-        </div>
+  <div style={{ background: "rgba(255,255,255,.08)", borderRadius: 16, padding: "14px 24px", display: "inline-block" }}>
+  <div style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(52px, 26vw, 62px)", lineHeight: 1 }}>{pct}%</div>
+  
+  {myRank > 0 && (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ color: "#a78bfa", fontFamily: "'Varela Round',sans-serif", fontSize: "clamp(16px, 12vw, 22px)" }}>
+        מקום {myRank} מבין {board.length} משפחות
+      </div>
+      <div style={{ color: "#94a3b8", fontSize: "14px", marginTop: 4, opacity: 0.9 }}>
+        ⚡ מהירות: {Number(quizTime || 0).toFixed(1)} שניות לשאלה
+      </div>
+    </div>
+  )}
+</div> {/* <--- הסגירה הזו חשובה! */}
+
+{badges.length > 0 && (
+  <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}>
+    {badges.map((b, i) => (
+      <div key={i} style={{ background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", borderRadius: 20, padding: "5px 14px", display: "flex", alignItems: "center", gap: 5 }}>
+        <span style={{ fontSize: "clamp(16px, 12vw, 20px)" }}>{b.emoji}</span>
+        <span style={{ color: "#fbbf24", fontFamily: "'Rubik',sans-serif", fontSize: "clamp(14px, 11vw, 17px)" }}>{b.label}</span>
+      </div>
+    ))}
+  </div>
+)}
         {badges.length > 0 && (
           <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", marginTop:12 }}>
             {badges.map((b,i) => (
@@ -1956,8 +2007,7 @@ function AppInner() {
     const iv = setInterval(() => setLoadMsg(LOAD_MSGS[mi++ % LOAD_MSGS.length]), 2000);
     return () => clearInterval(iv);
   };
-
-  // ─── שיתוף לוגיקה: יצירת שאלות מויקיפדיה ───
+// ─── שיתוף לוגיקה: יצירת שאלות מויקיפדיה ───
   const [shortArticleConfirm, setShortArticleConfirm] = useState(null); // {topic, resolve}
 
   const buildQuiz = async (t, mems) => {
@@ -1974,7 +2024,14 @@ function AppInner() {
     }
     const seed = Math.random().toString(36).slice(2,8);
     const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
-    return data;
+    
+    // --- התיקון החדש: רף מינימום של 12 שאלות כדי למנוע יתרון לא הוגן ---
+    const minQuestions = 12;
+    const perMember = 4;
+    const targetCount = Math.max(minQuestions, mems.length * perMember);
+    
+    // מחזיר את כמות השאלות המבוקשת (או מה שיש אם המאמר קצר מאוד)
+    return data.slice(0, targetCount);
   };
 
   const [showUpsell, setShowUpsell] = useState(false);
@@ -1989,7 +2046,6 @@ function AppInner() {
     }
     return true;
   };
-
   const handlePlay = async (t) => {
     if (!checkDailyLimit()) return;
     setTopic(t); setIsChallenger(false); setCreatorPct(null);
@@ -2023,38 +2079,41 @@ function AppInner() {
     } catch(e) { stop(); setError("שגיאה בטעינת החידון"); setScreen("home"); }
   };
 const handleFinish = async (s, totalSeconds) => {
-  setScores(s);
-  setQuizTime(totalSeconds || 0);
-  const pct = fp(family.members, s);
-  const rawScore = calcRawScore(family.members, s);
-  try {
-    if (isChallenger) {
-      var updated = await updateChallenge(code, family.name, pct, totalSeconds, null);
-      if (!updated) await saveChallenge(code, family.name, pct, totalSeconds, null).catch(function(){});
-      saveFamilyChallenge(code, family.name, null).catch(function(){});
-      upsertScore(family.name, rawScore, pct, null).catch(function(){});
-      notifyBeatenFamilies(code, family.name, pct, topic);
-      if (creatorPct !== null && pct > creatorPct) setBeatenBy(null);
-      setScreen("results");
-    } else {
-      var newCode = makeCode();
-      setCode(newCode);
-      await saveQuizRoom(newCode, topic, family.name, pct, null);
-      await saveChallenge(newCode, family.name, pct, totalSeconds, null);
-      await saveFamilyChallenge(newCode, family.name, null);
-      upsertScore(family.name, rawScore, pct, null).catch(function(){});
-      setScreen("share");
-    }
-  } catch(e) {
-    console.error("handleFinish error:", e);
-    setScreen(isChallenger ? "results" : "share");
-  }
-  if ("Notification" in window && Notification.permission === "default" && !LS.get("push_asked")) {
-    setTimeout(function() { setShowPushModal(true); }, 1500);
-  }
-};
+    setScores(s);
+    
+    // --- חישוב שובר השוויון ההוגן: זמן ממוצע לשאלה ---
+    const qCount = Object.keys(s).length || 1;
+    const avgSpeed = totalSeconds / qCount;
+    setQuizTime(avgSpeed); 
 
-  const handleSameTopic = async () => {
+    const pct = fp(family.members, s);
+    const rawScore = calcRawScore(family.members, s);
+
+    try {
+      if (isChallenger) {
+        // שימוש ב-avgSpeed בכל השמירות
+        var updated = await updateChallenge(code, family.name, pct, avgSpeed, null);
+        if (!updated) await saveChallenge(code, family.name, pct, avgSpeed, null).catch(function(){});
+        
+        saveFamilyChallenge(code, family.name, null).catch(function(){});
+        upsertScore(family.name, rawScore, pct, avgSpeed).catch(function(){});
+        
+        notifyBeatenFamilies(code, family.name, pct, topic);
+        if (creatorPct !== null && pct > creatorPct) setBeatenBy(null);
+        setScreen("results");
+      } else {
+        var newCode = makeCode();
+        setCode(newCode);
+        await saveQuizRoom(newCode, topic, family.name, pct, avgSpeed);
+        await saveFamilyChallenge(newCode, family.name, null);
+        await upsertScore(family.name, rawScore, pct, avgSpeed);
+        setScreen("results");
+      }
+    } catch(e) {
+      console.error(e);
+      setScreen("results");
+    }
+  };  const handleSameTopic = async () => {
     if (!checkDailyLimit()) return;
     const stop = startLoad();
     try {
@@ -2140,8 +2199,7 @@ const handleFinish = async (s, totalSeconds) => {
           )}
           {screen==="quiz"         && quizData && family && <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />}
           {screen==="share"        && <ShareScreen code={code} topic={topic} familyName={family?.name} pct={pct} onContinue={()=>setScreen("results")} />}
-          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} onHome={()=>setScreen("home")} onSameTopic={code ? handleRetryChallenge : handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} beatenBy={beatenBy} onRematch={handleRematch} />}
-        </div>
+          {screen==="results" && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} quizTime={quizTime} onHome={()=>setScreen("home")} onSameTopic={code ? handleRetryChallenge : handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} beatenBy={beatenBy} onRematch={handleRematch} />}        </div>
       </div>
 
       <InstallBanner />
