@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dare2Know Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+body { background:#0f172a; color:#e2e8f0; font-family:'Rubik',sans-serif; margin:0; padding:20px; }
+h1 { color:#fbbf24; font-size:28px; margin:0 0 20px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:24px; }
+.card { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:20px; text-align:center; }
+.card .num { font-size:36px; font-weight:900; color:#fbbf24; }
+.card .label { font-size:14px; color:#94a3b8; margin-top:4px; }
+table { width:100%; border-collapse:collapse; background:rgba(255,255,255,0.04); border-radius:12px; overflow:hidden; margin-bottom:20px; }
+th { background:rgba(124,58,237,0.3); color:#c4b5fd; padding:10px; text-align:right; font-size:13px; }
+td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.06); font-size:13px; }
+tr:hover { background:rgba(255,255,255,0.04); }
+h2 { color:#a78bfa; font-size:18px; margin:20px 0 10px; }
+.status-active { color:#4ade80; }
+.status-cancelled { color:#f87171; }
+#loading { text-align:center; padding:60px; color:#64748b; font-size:18px; }
+</style>
+</head>
+<body>
+<h1>🧠 Dare2Know Admin Dashboard</h1>
+<div id="loading">טוען נתונים...</div>
+<div id="content" style="display:none">
+  <div class="grid">
+    <div class="card"><div class="num" id="totalFamilies">0</div><div class="label">משפחות רשומות</div></div>
+    <div class="card"><div class="num" id="activeToday">0</div><div class="label">פעילות היום</div></div>
+    <div class="card"><div class="num" id="totalSubs">0</div><div class="label">מנויים משלמים</div></div>
+    <div class="card"><div class="num" id="totalChallenges">0</div><div class="label">אתגרים אחרונים</div></div>
+  </div>
+  <h2>📊 פעילות היום</h2>
+  <table><thead><tr><th>משפחה</th><th>חידונים היום</th></tr></thead><tbody id="dailyTable"></tbody></table>
+  <h2>💰 מנויים</h2>
+  <table><thead><tr><th>משפחה</th><th>תוכנית</th><th>סטטוס</th><th>תאריך</th></tr></thead><tbody id="subsTable"></tbody></table>
+  <h2>🏆 שחקנים מובילים</h2>
+  <table><thead><tr><th>משפחה</th><th>משחקים</th><th>נק' שבועי</th><th>רצף</th><th>פעילות אחרונה</th></tr></thead><tbody id="playersTable"></tbody></table>
+  <h2>⚔️ אתגרים אחרונים</h2>
+  <table><thead><tr><th>נושא</th><th>יוצר</th><th>קוד</th><th>תאריך</th></tr></thead><tbody id="challengesTable"></tbody></table>
+  <h2>👨‍👩‍👧‍👦 משפחות אחרונות</h2>
+  <table><thead><tr><th>שם</th><th>הצטרפות</th></tr></thead><tbody id="familiesTable"></tbody></table>
+</div>
+<script>
+var KEY = prompt("הזן סיסמת אדמין:");
+if (!KEY) { document.getElementById("loading").textContent = "לא הוזנה סיסמה"; }
+else {
+  fetch("/api/admin?key=" + encodeURIComponent(KEY))
+    .then(function(r) { if (!r.ok) throw new Error("unauthorized"); return r.json(); })
+    .then(function(d) {
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("content").style.display = "block";
+      document.getElementById("totalFamilies").textContent = d.totalFamilies;
+      document.getElementById("activeToday").textContent = d.activeTodayCount;
+      document.getElementById("totalSubs").textContent = d.totalSubscriptions;
+      document.getElementById("totalChallenges").textContent = d.recentChallenges.length;
+      var fmt = function(dt) { return dt ? new Date(dt).toLocaleDateString("he-IL") : "-"; };
+      d.activeToday.forEach(function(r) {
+        document.getElementById("dailyTable").innerHTML += "<tr><td>" + r.family_name + "</td><td>" + r.daily_quizzes + "</td></tr>";
+      });
+      d.subscriptions.forEach(function(r) {
+        var cls = r.status === "active" ? "status-active" : "status-cancelled";
+        document.getElementById("subsTable").innerHTML += "<tr><td>" + r.family_name + "</td><td>" + r.plan + "</td><td class='" + cls + "'>" + r.status + "</td><td>" + fmt(r.created_at) + "</td></tr>";
+      });
+      d.topPlayers.forEach(function(r) {
+        document.getElementById("playersTable").innerHTML += "<tr><td>" + r.family_name + "</td><td>" + r.total_games + "</td><td>" + (r.weekly_points||0) + "</td><td>" + (r.streak||0) + "</td><td>" + fmt(r.last_played) + "</td></tr>";
+      });
+      d.recentChallenges.forEach(function(r) {
+        document.getElementById("challengesTable").innerHTML += "<tr><td>" + r.topic + "</td><td>" + r.creator_family + "</td><td>" + r.code + "</td><td>" + fmt(r.created_at) + "</td></tr>";
+      });
+      d.recentFamilies.forEach(function(r) {
+        document.getElementById("familiesTable").innerHTML += "<tr><td>" + r.name + "</td><td>" + fmt(r.created_at) + "</td></tr>";
+      });
+    })
+    .catch(function(e) { document.getElementById("loading").textContent = "שגיאה: " + e.message; });
+}
+</script>
+</body>
+</html>

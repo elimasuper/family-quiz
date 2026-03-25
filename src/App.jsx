@@ -621,39 +621,31 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
 async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   // בחר קטעים רנדומליים מהטקסט המלא — שונים בכל חידון
   var len = wikiText.length;
-  var chunkSize = 900;
+  var chunkSize = 1200;
   var positions = [];
-  var numChunksNeeded = Math.min(8, Math.max(4, members.length * 2));
+  // יותר chunks כדי לכסות יותר מהטקסט
+  var numChunksNeeded = Math.min(12, Math.max(5, Math.ceil(len / 3000)));
 
-  // הבטח chunks גם מהחלק השני של הטקסט (שם נמצאת ההעשרה)
-  if (len > chunkSize * 3) {
-    var secondHalfStart = Math.floor(len * 0.5);
-    var thirdStart = Math.floor(len * 0.7);
-    [secondHalfStart, thirdStart].forEach(function(pos) {
-      if (positions.length < numChunksNeeded && pos + chunkSize <= len) {
-        if (positions.every(function(p) { return Math.abs(p - pos) > chunkSize; })) {
-          positions.push(pos);
-        }
-      }
-    });
-  }
-
-  // השלם עם chunks רנדומליים מהטקסט המלא
-  if (len <= chunkSize * 2) {
-    if (!positions.length) positions = [0];
-  } else {
-    var maxAttempts = 100;
-    var attempts = 0;
-    while (positions.length < numChunksNeeded && attempts < maxAttempts) {
-      attempts++;
-      var pos = Math.floor(Math.random() * Math.max(1, len - chunkSize));
-      if (positions.every(function(p) { return Math.abs(p - pos) > chunkSize; })) positions.push(pos);
+  // חלק את הטקסט ל-sections שוות ודגום מכל אחת
+  var numSections = Math.min(numChunksNeeded, Math.floor(len / chunkSize));
+  if (numSections >= 2) {
+    var sectionSize = Math.floor(len / numSections);
+    for (var s = 0; s < numSections; s++) {
+      var sectionStart = s * sectionSize;
+      var sectionEnd = Math.min(sectionStart + sectionSize, len);
+      // דגום מיקום רנדומלי בתוך הסקשיין
+      var pos = sectionStart + Math.floor(Math.random() * Math.max(1, sectionEnd - sectionStart - chunkSize));
+      pos = Math.max(0, Math.min(pos, len - chunkSize));
+      positions.push(pos);
     }
+  } else {
+    positions = [0];
   }
+
   positions.sort(function(a, b) { return a - b; });
-  var chunks = positions.map(function(p) { return wikiText.slice(p, p + chunkSize); });
-  var introStart = Math.floor(Math.random() * Math.min(500, Math.floor(len * 0.1)));
-  var wikiSlice = wikiText.slice(introStart, introStart + 800) + "\n\n..." + chunks.join("\n\n...");
+  var chunks = positions.map(function(p) { return wikiText.slice(p, Math.min(p + chunkSize, len)); });
+  // intro קבוע מההתחלה + כל ה-chunks
+  var wikiSlice = wikiText.slice(0, 800) + "\n\n..." + chunks.join("\n\n...");
 
   // הגבל מספר שאלות לפי אורך הטקסט
   var maxQuestionsFromText = Math.max(4, Math.floor(wikiSlice.length / 150));
@@ -687,6 +679,8 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     var groupMembers = groups[k];
     var g = ag(groupMembers[0].age);
     var needed = groupMembers.length * g.qCount;
+    // מינימום 10 שאלות לחידון — אם שחקן יחיד או זוג, בקש יותר
+    if (members.length <= 2) needed = Math.max(needed, 12);
     // בקש פי 2 שאלות כ-buffer — הסינון מוחק חלק
     var totalQ = Math.ceil(needed * 2) + Math.min(4, groupMembers.length);
     var minQ = groupMembers.length * 3;
@@ -787,7 +781,17 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     });
   }
 
-  // חתוך למספר קבוע — בדיוק qCount לכל משתתף
+  // חתוך למספר קבוע — בדיוק qCount לכל משתתף, מינימום 10 שאלות לחידון
+  var MIN_QUIZ_QUESTIONS = 10;
+  var totalAssigned = memberQueues.reduce(function(sum, mq) { return sum + Math.min(mq.questions.length, mq.needed); }, 0);
+  // אם סה"כ שאלות פחות מ-10, הגדל למשתתפים (חלוקה שווה)
+  if (totalAssigned < MIN_QUIZ_QUESTIONS && members.length <= 2) {
+    var extra = MIN_QUIZ_QUESTIONS - totalAssigned;
+    var perMember = Math.ceil(extra / memberQueues.length);
+    memberQueues.forEach(function(mq) {
+      mq.needed = Math.min(mq.questions.length, mq.needed + perMember);
+    });
+  }
   var results = memberQueues.map(function(mq) {
     return { name: mq.name, questions: mq.questions.slice(0, mq.needed) };
   });
