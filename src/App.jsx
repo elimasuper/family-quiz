@@ -1872,13 +1872,15 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
 
 // ─── PAYPAL BUTTON ────────────────────────────────────────────────────────────
 function PayPalBtn({ planId, planType, familyName, onSuccess }) {
-  var containerRef = useRef(null);
+  const containerRef = useRef(null); // שינינו ל-const
+
   useEffect(function() {
     if (!containerRef.current) return;
-    // טען PayPal SDK אם לא טעון
-    var scriptId = "paypal-sdk-script";
-    var existing = document.getElementById(scriptId);
-    var doRender = function() {
+
+    const scriptId = "paypal-sdk-script"; // שינינו ל-const
+    const existing = document.getElementById(scriptId);
+
+    const doRender = function() { // שינינו ל-const
       if (!window.paypal || !containerRef.current) return;
       containerRef.current.innerHTML = "";
       window.paypal.Buttons({
@@ -1892,18 +1894,23 @@ function PayPalBtn({ planId, planType, familyName, onSuccess }) {
         }
       }).render(containerRef.current);
     };
+
     if (existing && window.paypal) { doRender(); return; }
     if (existing) { existing.addEventListener("load", doRender); return; }
-    var s = document.createElement("script");
+
+    const s = document.createElement("script"); // שינינו ל-const
     s.id = scriptId;
     s.src = "https://www.paypal.com/sdk/js?client-id=" + PAYPAL_CLIENT_ID + "&vault=true&intent=subscription&currency=ILS";
     s.setAttribute("data-sdk-integration-source", "button-factory");
     s.onload = doRender;
     document.head.appendChild(s);
   }, [planId, familyName]);
+
   return (
-    <div ref={containerRef} style={{ minHeight:50 }}>
-      <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:14, textAlign:"center", padding:12 }}>טוען PayPal...</div>
+    <div ref={containerRef} style={{ minHeight: 50 }}>
+      <div style={{ color: "#64748b", fontFamily: "'Varela Round',sans-serif", fontSize: 14, textAlign: "center", padding: 12 }}>
+        טוען PayPal...
+      </div>
     </div>
   );
 }
