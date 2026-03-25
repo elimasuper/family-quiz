@@ -1762,54 +1762,16 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
 }
 
 // ─── ה-APP הראשי שסוגר את הכל ──────────────────────────────────────────────────
+// מחזיר את האפליקציה לעבוד עם כל הלוגיקה המקורית שלה
+function AppInner() {
+  // כאן נמצא כל הקוד הארוך שלך (useState, handlePlay, וכו')
+  // אם במקרה מחקת אותו, תעשה Ctrl+Z עד שהוא חוזר!
+}
+
 export default function App() {
-  // כאן אנחנו מגדירים את המשתנים בתוך ה-App הראשי
-  const [screen, setScreen] = useState("welcome"); 
-  const [family, setFamily] = useState(null);
-  const [scores, setScores] = useState({});
-  const [topic, setTopic] = useState("");
-  const [quizTime, setQuizTime] = useState(0); // הנה המשתנה שחיפשנו!
-
-  // פונקציות ניווט פשוטות
-  const handleFinish = (s, time) => { 
-    setScores(s); 
-    setQuizTime(time / (Object.keys(s).length || 1)); 
-    setScreen("results"); 
-  };
-
   return (
     <ErrorBoundary>
-      <div style={{ minHeight: "100vh", background: "#0f172a", padding: 20 }}>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          
-          {screen === "welcome" && (
-            <div style={{ textAlign: "center", color: "#fff" }}>
-              <h1>ברוכים הבאים לחידון המשפחתי!</h1>
-              <button onClick={() => setScreen("quiz")} style={{ padding: "15px 30px", fontSize: 20 }}>מתחילים</button>
-            </div>
-          )}
-
-          {screen === "quiz" && (
-            <QuizScreen 
-              members={family?.members || [{name: "שחקן 1"}]} 
-              onFinish={handleFinish} 
-            />
-          )}
-
-          {screen === "results" && (
-            <ResultsScreen 
-              scores={scores} 
-              members={family?.members || []} 
-              familyName={family?.name} 
-              topic={topic} 
-              quizTime={quizTime} 
-              onHome={() => setScreen("welcome")}
-              onSameTopic={() => setScreen("quiz")}
-            />
-          )}
-
-        </div>
-      </div>
+      <AppInner />
     </ErrorBoundary>
   );
 }
