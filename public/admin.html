@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>ניהול Dare2Know</title>
+    <style>
+        body { background:#0f172a; color:white; font-family:sans-serif; padding:20px; text-align:right; }
+        .stats { display:flex; gap:20px; margin-bottom:30px; }
+        .card { background:#1e293b; padding:20px; border-radius:12px; flex:1; text-align:center; border:1px solid #334155; }
+        .card h2 { color:#fbbf24; margin:0; font-size:32px; }
+        table { width:100%; border-collapse:collapse; margin-top:20px; }
+        th, td { padding:12px; border-bottom:1px solid #334155; text-align:right; }
+        .btn-up { background:#10b981; color:white; border:none; padding:5px 10px; border-radius:6px; cursor:pointer; font-size:12px; }
+        .btn-up:disabled { background:#334155; cursor:default; }
+    </style>
+</head>
+<body>
+    <h1>לוח בקרה למנהל</h1>
+    <div class="stats">
+        <div class="card"><h2 id="s1">-</h2><div>משפחות</div></div>
+        <div class="card"><h2 id="s2">-</h2><div>מנויים פעילים</div></div>
+        <div class="card"><h2 id="s3">-</h2><div>חידונים</div></div>
+    </div>
+
+    <h3>משפחות אחרונות:</h3>
+    <table id="t1">
+        <tr><th>שם</th><th>תאריך</th><th>פעולה</th></tr>
+    </table>
+
+    <script>
+        var key = new URLSearchParams(window.location.search).get("key");
+        
+        function upgrade(name) {
+            if (!confirm("לשדרג את משפחת " + name + " לפרימיום?")) return;
+            fetch("/api/admin?key=" + key, {
+                method: "POST",
+                body: JSON.stringify({ family_name: name })
+            }).then(function() { alert("שודרג בהצלחה!"); location.reload(); });
+        }
+
+        if (key) {
+            fetch("/api/admin?key=" + key)
+                .then(function(res) { return res.json(); })
+                .then(function(d) {
+                    document.getElementById("s1").innerText = d.totalFamilies;
+                    document.getElementById("s2").innerText = d.activeSubscriptions;
+                    document.getElementById("s3").innerText = d.activeGroups;
+                    
+                    var table = document.getElementById("t1");
+                    d.recentFamilies.forEach(function(f) {
+                        var isPremium = d.premiumFamilyNames.indexOf(f.name) > -1;
+                        var btn = isPremium ? "<span style='color:#10b981'>✅ פרימיום</span>" : 
+                                  "<button class='btn-up' onclick='upgrade(\"" + f.name + "\")'>שדרג</button>";
+                        
+                        var row = "<tr><td>" + f.name + "</td><td>" + new Date(f.created_at).toLocaleDateString() + "</td><td>" + btn + "</td></tr>";
+                        table.innerHTML += row;
+                    });
+                });
+        }
+    </script>
+</body>
+</html>

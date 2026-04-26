@@ -134,22 +134,79 @@ const todayStr = () => new Date().toISOString().split("T")[0];
 // ─── DAILY QUIZ LIMIT ────────────────────────────────────────────────────────
 const DAILY_LIMIT = 3;
 const DAILY_KEY = "fq_daily";
+
 function getDailyCount() {
   var d = LS.get(DAILY_KEY);
   if (!d || d.date !== todayStr()) return 0;
   return d.count || 0;
 }
+
 function incDailyCount() {
+  // עדכן localStorage (cache מהיר)
   var d = LS.get(DAILY_KEY);
-  if (!d || d.date !== todayStr()) { LS.set(DAILY_KEY, { date: todayStr(), count: 1 }); return 1; }
+  if (!d || d.date !== todayStr()) { d = { date: todayStr(), count: 0 }; }
   d.count = (d.count || 0) + 1;
   LS.set(DAILY_KEY, d);
   return d.count;
 }
+
+async function incDailyCountDB(familyName) {
+  // עדכן גם ב-DB (סנכרון בין מכשירים)
+  incDailyCount();
+  return sbSafe(async function() {
+    var today = todayStr();
+    var r = await sbFetch("family_scores?family_name=eq." + encodeURIComponent(familyName) + "&select=daily_quizzes,daily_date");
+    if (r && r.length > 0) {
+      var current = r[0];
+      var count = (current.daily_date === today) ? (current.daily_quizzes || 0) + 1 : 1;
+      await sbFetch("family_scores?family_name=eq." + encodeURIComponent(familyName), {
+        method: "PATCH",
+        body: JSON.stringify({ daily_quizzes: count, daily_date: today }),
+      });
+    }
+  }, null, null);
+}
+
+async function syncDailyCount(familyName) {
+  // סנכרן מ-DB ל-localStorage (boot)
+  return sbSafe(async function() {
+    var r = await sbFetch("family_scores?family_name=eq." + encodeURIComponent(familyName) + "&select=daily_quizzes,daily_date");
+    if (r && r.length > 0 && r[0].daily_date === todayStr()) {
+      LS.set(DAILY_KEY, { date: todayStr(), count: r[0].daily_quizzes || 0 });
+    } else {
+      LS.set(DAILY_KEY, { date: todayStr(), count: 0 });
+    }
+  }, null, null);
+}
 function isPremium() {
-  // TODO: בדוק מנוי אמיתי מ-DB. כרגע — תמיד false
+  // בדוק מנוי אמיתי מ-DB (נטען ב-boot ונשמר ב-LS כ-cache)
   return LS.get("fq_premium") === true;
 }
+async function checkSubscription(familyName) {
+  return sbSafe(async function() {
+    var r = await sbFetch("subscriptions?family_name=eq." + encodeURIComponent(familyName) + "&status=eq.active&select=plan&limit=1");
+    if (r && r.length > 0) {
+      LS.set("fq_premium", true);
+      LS.set("fq_plan", r[0].plan);
+      return r[0].plan;
+    }
+    LS.remove("fq_premium");
+    LS.remove("fq_plan");
+    return null;
+  }, null, null);
+}
+async function saveSubscription(familyName, plan, subscriptionId) {
+  return sbSafe(function() {
+    return sbFetch("subscriptions", {
+      method: "POST", prefer: "return=minimal",
+      body: JSON.stringify({ family_name: familyName, plan: plan, paypal_subscription_id: subscriptionId, status: "active" }),
+    });
+  }, null, null);
+}
+
+var PAYPAL_CLIENT_ID = "ATCmqeIEv4sWnNHKBpAHAl8UQdFlTd973pueHqc0XacXRo-PepUlhVsWcpfGPj4W-THoiL12Y_SDcY1p";
+var PLAN_FAMILY = "P-01P1320932723100MNHA34LI";
+var PLAN_TEACHER = "P-9L0119353R040442CNHA36AY";
 
 async function registerFamily(name, pin, members, setOnline) {
   return sbSafe(async () => {
@@ -205,7 +262,7 @@ async function getMyActiveChallenges(familyName, setOnline) {
     const codes = fc.map(r => r.challenge_code);
     // קבל את פרטי החדרים הפעילים
     const rooms = await Promise.all(codes.map(c =>
-      sbFetch(("quiz_rooms?code=eq." + c + "&expires_at=gte." + now + "&select=code,topic,creator_family,creator_pct"))
+      sbFetch(("quiz_rooms?code=eq." + c + "&expires_at=gte." + now + "&select=code,topic,creator_family,creator_pct,expires_at"))
         .then(r => r && r.length ? r[0] : null).catch(() => null)
     ));
     const active = rooms.filter(Boolean);
@@ -513,18 +570,38 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
     + "\nכמות שאלות: " + totalQuestions
     + "\n\nחוקים:"
     + "\n1. שאלות מהטקסט בלבד — אסור להמציא עובדות, מילים, שמות, או מושגים שלא מופיעים בטקסט. כל מילה בשאלה ובתשובה הנכונה חייבת להתבסס על מה שכתוב בטקסט."
-      + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים. לפני שאתה כותב שאלה, ודא שלא דומה לאף שאלה קודמת — לא אותו נושא, עובדה או מושג."
+    + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים. לפני שאתה כותב שאלה, ודא שלא דומה לאף שאלה קודמת — לא אותו נושא, עובדה או מושג."
     + "\n2b. אם כבר נוצרו שאלות בקריאות אחרות לאותה קבוצת גיל, חובה להתרחק מהן: לא אותו פרט, לא אותו מושג, לא אותה עובדה בניסוח אחר."
-    + "\n3. חשוב מאוד: הטקסט מכיל מספר נושאים וחלקים — חובה לשאול שאלות מכל החלקים! אל תתמקד רק בחלק הראשון. אם יש בטקסט כמה נושאים שונים (למשל: כוסות ובקבוקים) — חובה לשאול שאלות גם על הנושא השני."
+    + "\n3. חשוב מאוד: הטקסט מכיל מספר נושאים וחלקים — חובה לשאול שאלות מכל החלקים! אל תתמקד רק בחלק הראשון. אם יש בטקסט כמה נושאים שונים — חובה לשאול שאלות גם על הנושא השני."
     + "\n4. אסור שהתשובה הנכונה תופיע בגוף השאלה."
-    + "\n5. עברית תקנית וברורה! כללים קריטיים:"
-    + "\n   - כל שאלה חייבת להיות משפט שלם וברור עם נושא, נשוא ומשלים."
-    + "\n   - אסור לערבב שני נושאים באותה שאלה."
-    + "\n   - אסור לשים את התשובה בתוך השאלה."
-    + "\n   - השתמש במונחים מהטקסט עצמו, לא במילים מומצאות."
-    + "\n   - דוגמאות נכונות: 'כמה נקודות מקבלים על קליעת שלוש?' / 'מי ייסד את קבוצת הבולס?' / 'באיזו שנה זכה ג׳ורדן באליפות הראשונה שלו?'"
-    + "\n   - דוגמאות שגויות שאסור לכתוב: 'איזה מנהל של קבוצה קנה ג׳ורדן את הקבוצה' (שני נושאים מעורבבים) / 'באיזה חודש ביולי דחה בית המשפט' (חודש ביולי = שטות, צריך רק 'מתי') / 'מה פעם לאיזו רגל פרץ' (משפט שבור)"
-    + "\n6. 4 תשובות לכל שאלה, כך: תשובה נכונה אחת, 2 מסיחים סבירים שנשמעים אפשריים אבל שגויים, ומסיח אחד הומוריסטי/אבסורדי שברור שהוא לא נכון אבל מצחיק (למשל: אם השאלה על דינוזאורים, מסיח כמו 'פיצה')."
+    + "\n5. עברית תקנית — מדריך דקדוק קריטי:"
+    + "\n   א. מבנה משפט: כל שאלה = משפט אחד שלם עם נושא + נשוא + משלים. סדר: [מילת שאלה] [נשוא] [נושא] [משלים]?"
+    + "\n   ב. מילות שאלה נכונות: 'מי' (לאדם), 'מה' (לדבר), 'כמה' (למספר), 'מתי' (לזמן), 'היכן/איפה' (למקום), 'באיזו שנה' (לשנה), 'מהו/מהי' (להגדרה), 'איזה/איזו' (לבחירה)."
+    + "\n   ג. התאמת מין: 'איזה' (זכר) / 'איזו' (נקבה). 'מהו' (זכר) / 'מהי' (נקבה). 'נבנה' (זכר) / 'נבנתה' (נקבה). חובה להתאים לנושא המשפט."
+    + "\n   ד. אסור לערבב שני נושאים במשפט אחד. שגוי: 'איזה מנהל קנה ג׳ורדן את הקבוצה'. נכון: 'מי רכש את קבוצת הבולס בשנת 2010?'"
+    + "\n   ה. אסור שאלות עם כפל מידע סותר. שגוי: 'באיזה חודש ביולי'. נכון: 'מתי דחה בית המשפט את התביעה?'"
+    + "\n   ו. כל מילה חייבת להיות שלמה. לא 'באיז' אלא 'באיזה'. לא 'מאד' אלא 'מאוד'. לא 'אליפו' אלא 'אליפות'. בדוק כל מילה!"
+    + "\n   ז. תשובות ספציפיות: לא 'עץ איכותי' אלא 'עץ ארז'. לא 'מקום חם' אלא 'מצרים'. השתמש בשמות ובמונחים מדויקים מהטקסט."
+    + "\n   ח. פועל בהתאם לזמן: אם מדברים על העבר, השתמש בעבר ('הומצא', 'נוסד', 'שימש'). אם על ההווה, השתמש בהווה."
+    + "\n   ט. 'של' ולא גרשיים: 'הצבא של ישראל' ולא 'צבא ישראל's'. אין גרשיים בעברית לציון שייכות."
+    + "\n   י. הימנע ממילות קישור מיותרות. שגוי: 'מה הוא הדבר שבו השתמשו כדי'. נכון: 'במה השתמשו ל..?'"
+    + "\n   יא. שאלה אחת בלבד — לא שתי שאלות באחת. שגוי: 'מתי ואיפה נוסד'. נכון: 'מתי נוסד?' (שאלה נפרדת: 'היכן נוסד?')"
+    + "\n"
+    + "\n   דוגמאות נכונות:"
+    + "\n   - 'באיזו שנה נוסדה מדינת ישראל?'"
+    + "\n   - 'כמה שחקנים יש בקבוצת כדורסל?'"
+    + "\n   - 'מי כתב את ספר בראשית לפי המסורת?'"
+    + "\n   - 'מהו השימוש העיקרי של חומר זה?'"
+    + "\n   - 'היכן נמצא המקדש הגדול ביותר?'"
+    + "\n"
+    + "\n   דוגמאות שגויות (אסור!):"
+    + "\n   - 'איזה מנהל של קבוצה קנה ג׳ורדן את הקבוצה' (שני נושאים)"
+    + "\n   - 'באיזה חודש ביולי דחה בית המשפט' (כפל מידע סותר)"
+    + "\n   - 'מה פעם לאיזו רגל פרץ' (משפט שבור)"
+    + "\n   - 'מאיזה סוג יצרו' + תשובה 'עץ איכותי' (תשובה לא ספציפית)"
+    + "\n   - 'מהו דבר שנקרא בשם אחר' (עמום ולא ברור)"
+    + "\n"
+    + "\n6. 4 תשובות לכל שאלה: תשובה נכונה אחת, 2 מסיחים סבירים שנשמעים אפשריים אבל שגויים, ומסיח אחד הומוריסטי/אבסורדי שברור שהוא לא נכון אבל מצחיק."
     + "\n7. אסור שהמסיחים יהיו דומים זה לזה — כל תשובה חייבת להיות שונה בבירור."
     + "\n8. emoji אחד כללי ורלוונטי לנושא השאלה, אבל לא כזה שחושף או מרמז על התשובה הנכונה."
     + "\n9. אל תוסיף שדה explanation."
@@ -544,39 +621,31 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
 async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   // בחר קטעים רנדומליים מהטקסט המלא — שונים בכל חידון
   var len = wikiText.length;
-  var chunkSize = 900;
+  var chunkSize = 1200;
   var positions = [];
-  var numChunksNeeded = Math.min(8, Math.max(4, members.length * 2));
+  // יותר chunks כדי לכסות יותר מהטקסט
+  var numChunksNeeded = Math.min(12, Math.max(5, Math.ceil(len / 3000)));
 
-  // הבטח chunks גם מהחלק השני של הטקסט (שם נמצאת ההעשרה)
-  if (len > chunkSize * 3) {
-    var secondHalfStart = Math.floor(len * 0.5);
-    var thirdStart = Math.floor(len * 0.7);
-    [secondHalfStart, thirdStart].forEach(function(pos) {
-      if (positions.length < numChunksNeeded && pos + chunkSize <= len) {
-        if (positions.every(function(p) { return Math.abs(p - pos) > chunkSize; })) {
-          positions.push(pos);
-        }
-      }
-    });
-  }
-
-  // השלם עם chunks רנדומליים מהטקסט המלא
-  if (len <= chunkSize * 2) {
-    if (!positions.length) positions = [0];
-  } else {
-    var maxAttempts = 100;
-    var attempts = 0;
-    while (positions.length < numChunksNeeded && attempts < maxAttempts) {
-      attempts++;
-      var pos = Math.floor(Math.random() * Math.max(1, len - chunkSize));
-      if (positions.every(function(p) { return Math.abs(p - pos) > chunkSize; })) positions.push(pos);
+  // חלק את הטקסט ל-sections שוות ודגום מכל אחת
+  var numSections = Math.min(numChunksNeeded, Math.floor(len / chunkSize));
+  if (numSections >= 2) {
+    var sectionSize = Math.floor(len / numSections);
+    for (var s = 0; s < numSections; s++) {
+      var sectionStart = s * sectionSize;
+      var sectionEnd = Math.min(sectionStart + sectionSize, len);
+      // דגום מיקום רנדומלי בתוך הסקשיין
+      var pos = sectionStart + Math.floor(Math.random() * Math.max(1, sectionEnd - sectionStart - chunkSize));
+      pos = Math.max(0, Math.min(pos, len - chunkSize));
+      positions.push(pos);
     }
+  } else {
+    positions = [0];
   }
+
   positions.sort(function(a, b) { return a - b; });
-  var chunks = positions.map(function(p) { return wikiText.slice(p, p + chunkSize); });
-  var introStart = Math.floor(Math.random() * Math.min(500, Math.floor(len * 0.1)));
-  var wikiSlice = wikiText.slice(introStart, introStart + 800) + "\n\n..." + chunks.join("\n\n...");
+  var chunks = positions.map(function(p) { return wikiText.slice(p, Math.min(p + chunkSize, len)); });
+  // intro קבוע מההתחלה + כל ה-chunks
+  var wikiSlice = wikiText.slice(0, 800) + "\n\n..." + chunks.join("\n\n...");
 
   // הגבל מספר שאלות לפי אורך הטקסט
   var maxQuestionsFromText = Math.max(4, Math.floor(wikiSlice.length / 150));
@@ -610,6 +679,8 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     var groupMembers = groups[k];
     var g = ag(groupMembers[0].age);
     var needed = groupMembers.length * g.qCount;
+    // מינימום 10 שאלות לחידון — אם שחקן יחיד או זוג, בקש יותר
+    if (members.length <= 2) needed = Math.max(needed, 12);
     // בקש פי 2 שאלות כ-buffer — הסינון מוחק חלק
     var totalQ = Math.ceil(needed * 2) + Math.min(4, groupMembers.length);
     var minQ = groupMembers.length * 3;
@@ -710,7 +781,17 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     });
   }
 
-  // חתוך למספר קבוע — בדיוק qCount לכל משתתף
+  // חתוך למספר קבוע — בדיוק qCount לכל משתתף, מינימום 10 שאלות לחידון
+  var MIN_QUIZ_QUESTIONS = 10;
+  var totalAssigned = memberQueues.reduce(function(sum, mq) { return sum + Math.min(mq.questions.length, mq.needed); }, 0);
+  // אם סה"כ שאלות פחות מ-10, הגדל למשתתפים (חלוקה שווה)
+  if (totalAssigned < MIN_QUIZ_QUESTIONS && members.length <= 2) {
+    var extra = MIN_QUIZ_QUESTIONS - totalAssigned;
+    var perMember = Math.ceil(extra / memberQueues.length);
+    memberQueues.forEach(function(mq) {
+      mq.needed = Math.min(mq.questions.length, mq.needed + perMember);
+    });
+  }
   var results = memberQueues.map(function(mq) {
     return { name: mq.name, questions: mq.questions.slice(0, mq.needed) };
   });
@@ -1113,7 +1194,8 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
               <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 22px)", marginBottom:10 }}>⚔️ האתגרים שלי</div>
               {myChallenges.map((ch,i) => {
                 const isOpen = selectedChallenge === ch.code;
-                const daysLeft = Math.ceil((new Date(ch.expires_at||Date.now()+86400000) - new Date()) / 86400000);
+                const daysLeft = Math.max(0, Math.ceil((new Date(ch.expires_at) - new Date()) / 86400000));
+                const daysText = daysLeft === 1 ? "יום אחד נותר" : daysLeft + " ימים נותרו";
                 return (
                   <div key={ch.code} style={{ marginBottom:8 }}>
                     <button onClick={() => setSelectedChallenge(isOpen ? null : ch.code)}
@@ -1122,7 +1204,7 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
                         <div style={{ flex:1 }}>
                           <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>{ch.topic}</div>
                           <div style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", marginTop:2 }}>
-                            {ch.total} משפחות · {daysLeft} ימים נותרו
+                            {ch.total} משפחות · {daysText}
                           </div>
                         </div>
                         <div style={{ textAlign:"center" }}>
@@ -1601,7 +1683,7 @@ function ConfettiOnce() {
   return <Confetti active={active} />;
 }
 
-function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, onHome, onSameTopic, onSetOnline, onShare, beatenBy, onRematch }) {
+function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, quizTime, onHome, onSameTopic, onSetOnline, onShare, beatenBy, onRematch }) {
   const [board, setBoard] = useState([]);
   const [monthly, setMonthly] = useState({pts:[],avg:[]});
   const [tab, setTab] = useState("challenge");
@@ -1638,6 +1720,7 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
         <div style={{ background:"rgba(255,255,255,.08)", borderRadius:16, padding:"14px 24px", display:"inline-block" }}>
           <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{pct}%</div>
           {myRank>0&&<div style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", marginTop:4 }}>מקום {myRank} מבין {board.length} משפחות</div>}
+          {quizTime > 0 && <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", marginTop:4 }}>{"⚡ " + Math.floor(quizTime / 60) + ":" + String(quizTime % 60).padStart(2, "0") + " דקות"}</div>}
         </div>
         {badges.length > 0 && (
           <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", marginTop:12 }}>
@@ -1737,6 +1820,44 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, o
   );
 }
 
+// ─── PAYPAL BUTTON ────────────────────────────────────────────────────────────
+function PayPalBtn({ planId, planType, familyName, onSuccess }) {
+  var containerRef = useRef(null);
+  useEffect(function() {
+    if (!containerRef.current) return;
+    // טען PayPal SDK אם לא טעון
+    var scriptId = "paypal-sdk-script";
+    var existing = document.getElementById(scriptId);
+    var doRender = function() {
+      if (!window.paypal || !containerRef.current) return;
+      containerRef.current.innerHTML = "";
+      window.paypal.Buttons({
+        style: { shape: "rect", color: "gold", layout: "vertical", label: "subscribe" },
+        createSubscription: function(data, actions) {
+          return actions.subscription.create({ plan_id: planId });
+        },
+        onApprove: function(data) {
+          saveSubscription(familyName, planType, data.subscriptionID);
+          if (onSuccess) onSuccess();
+        }
+      }).render(containerRef.current);
+    };
+    if (existing && window.paypal) { doRender(); return; }
+    if (existing) { existing.addEventListener("load", doRender); return; }
+    var s = document.createElement("script");
+    s.id = scriptId;
+    s.src = "https://www.paypal.com/sdk/js?client-id=" + PAYPAL_CLIENT_ID + "&vault=true&intent=subscription&currency=ILS";
+    s.setAttribute("data-sdk-integration-source", "button-factory");
+    s.onload = doRender;
+    document.head.appendChild(s);
+  }, [planId, familyName]);
+  return (
+    <div ref={containerRef} style={{ minHeight:50 }}>
+      <div style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:14, textAlign:"center", padding:12 }}>טוען PayPal...</div>
+    </div>
+  );
+}
+
 function AppInner() {
   const [family, setFamily]       = useState(null);        // loaded from LS on boot
   const [screen, setScreen]       = useState("boot");      // boot|welcome|home|loading|editFamily|quiz|share|results
@@ -1782,6 +1903,10 @@ function AppInner() {
       }
       setFamily(saved);
       registerPush(saved.name);
+      // בדוק מנוי פעיל
+      checkSubscription(saved.name);
+      // סנכרן ספירה יומית מ-DB
+      syncDailyCount(saved.name);
       // בדוק מנצח שבועי
       getLatestWinner().then(function(w) { if (w) setWeeklyWinner(w); });
       // בדוק אתגרים שנסגרו
@@ -1852,10 +1977,12 @@ function AppInner() {
   };
 
   const [showUpsell, setShowUpsell] = useState(false);
+  const [upsellTab, setUpsellTab] = useState("family");
 
   const checkDailyLimit = function() {
     if (isPremium()) return true;
     if (getDailyCount() >= DAILY_LIMIT) {
+      setUpsellTab("family");
       setShowUpsell(true);
       return false;
     }
@@ -1868,7 +1995,7 @@ function AppInner() {
     const stop = startLoad();
     try {
       const validated = await buildQuiz(t, family.members);
-      incDailyCount();
+      incDailyCountDB(family.name);
       stop(); setQuizData(validated); setScreen("quiz");
     } catch(e) {
       stop();
@@ -1888,7 +2015,7 @@ function AppInner() {
         stop(); setTopic(room.topic); setBlockedTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct); setScreen("alreadyPlayed"); return;
       }
       const validated = await buildQuiz(room.topic, family.members);
-      incDailyCount();
+      incDailyCountDB(family.name);
       stop(); setTopic(room.topic); setCode(c); setCreatorPct(room.creator_pct);
       setQuizData(validated); setIsChallenger(true); setScreen("quiz");
       window.history.replaceState({}, "", window.location.pathname);
@@ -1931,7 +2058,7 @@ const handleFinish = async (s, totalSeconds) => {
     const stop = startLoad();
     try {
       const validated = await buildQuiz(topic, family.members);
-      incDailyCount();
+      incDailyCountDB(family.name);
       stop(); setQuizData(validated); setIsChallenger(false); setCreatorPct(null); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
@@ -1941,7 +2068,7 @@ const handleFinish = async (s, totalSeconds) => {
     const stop = startLoad();
     try {
       const validated = await buildQuiz(topic, family.members);
-      incDailyCount();
+      incDailyCountDB(family.name);
       const newCode = makeCode();
       setCode(newCode);
       stop(); setQuizData(validated); setIsChallenger(false); setBeatenBy(null); setScreen("quiz");
@@ -1954,7 +2081,7 @@ const handleFinish = async (s, totalSeconds) => {
     const stop = startLoad();
     try {
       const validated = await buildQuiz(blockedTopic || topic, family.members);
-      incDailyCount();
+      incDailyCountDB(family.name);
       stop(); setTopic(blockedTopic || topic); setQuizData(validated); setIsChallenger(true); setScreen("quiz");
     } catch(e) { stop(); setError(e.message); setScreen("home"); }
   };
@@ -2012,7 +2139,7 @@ const handleFinish = async (s, totalSeconds) => {
           )}
           {screen==="quiz"         && quizData && family && <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />}
           {screen==="share"        && <ShareScreen code={code} topic={topic} familyName={family?.name} pct={pct} onContinue={()=>setScreen("results")} />}
-          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} onHome={()=>setScreen("home")} onSameTopic={code ? handleRetryChallenge : handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} beatenBy={beatenBy} onRematch={handleRematch} />}
+          {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} quizTime={quizTime} onHome={()=>setScreen("home")} onSameTopic={code ? handleRetryChallenge : handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} beatenBy={beatenBy} onRematch={handleRematch} />}
         </div>
       </div>
 
@@ -2026,33 +2153,41 @@ const handleFinish = async (s, totalSeconds) => {
             <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", margin:"0 0 4px" }}>השתמשתם ב-{DAILY_LIMIT} חידונים. מחר תקבלו עוד!</p>
             <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)", margin:"0 0 16px" }}>או שדרגו ושחקו ללא הגבלה</p>
 
-            <div style={{ background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.3)", borderRadius:16, padding:14, marginBottom:10, textAlign:"right" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)" }}>₪9.90/חודש</div>
-                <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>👨‍👩‍👧‍👦 משפחתי</div>
+            {upsellTab === "family" ? (
+              <div>
+                <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+                  <button onClick={function() { setUpsellTab("family"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"2px solid #a78bfa", background:"rgba(167,139,250,.2)", color:"#c4b5fd", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>👨‍👩‍👧‍👦 משפחתי</button>
+                  <button onClick={function() { setUpsellTab("teacher"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"1px solid rgba(255,255,255,.1)", background:"transparent", color:"#64748b", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>📚 מורים</button>
+                </div>
+                <div style={{ background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.3)", borderRadius:16, padding:14, marginBottom:12, textAlign:"right" }}>
+                  <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", textAlign:"center", marginBottom:6 }}>₪9.90/חודש</div>
+                  <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
+                    <div>✅ חידונים ללא הגבלה</div>
+                    <div>✅ ללא פרסומות</div>
+                  </div>
+                </div>
+                <PayPalBtn planId={PLAN_FAMILY} planType="family" familyName={family ? family.name : ""} onSuccess={function() { LS.set("fq_premium", true); LS.set("fq_plan", "family"); setShowUpsell(false); }} />
               </div>
-              <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
-                <div>✅ חידונים ללא הגבלה</div>
-                <div>✅ ללא פרסומות</div>
+            ) : (
+              <div>
+                <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+                  <button onClick={function() { setUpsellTab("family"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"1px solid rgba(255,255,255,.1)", background:"transparent", color:"#64748b", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>👨‍👩‍👧‍👦 משפחתי</button>
+                  <button onClick={function() { setUpsellTab("teacher"); }} style={{ flex:1, padding:"8px", borderRadius:12, border:"2px solid #fbbf24", background:"rgba(251,191,36,.1)", color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>📚 מורים</button>
+                </div>
+                <div style={{ background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.3)", borderRadius:16, padding:14, marginBottom:12, textAlign:"right" }}>
+                  <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", textAlign:"center", marginBottom:6 }}>₪29.90/חודש</div>
+                  <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
+                    <div>✅ חידונים ללא הגבלה</div>
+                    <div>✅ ללא פרסומות</div>
+                    <div>✅ העלאת חומר לימוד</div>
+                    <div>✅ עד 500 חידוני תלמידים/חודש</div>
+                  </div>
+                </div>
+                <div style={{ padding:"14px", background:"rgba(251,191,36,.1)", borderRadius:16, color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", textAlign:"center" }}>🔜 בקרוב!</div>
               </div>
-            </div>
+            )}
 
-            <div style={{ background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.3)", borderRadius:16, padding:14, marginBottom:16, textAlign:"right", position:"relative" }}>
-              <div style={{ position:"absolute", top:-10, left:"50%", transform:"translateX(-50%)", background:"#fbbf24", color:"#1a1540", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(11px, 8vw, 13px)", padding:"2px 12px", borderRadius:20 }}>מומלץ למורים</div>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8, marginTop:4 }}>
-                <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)" }}>₪29.90/חודש</div>
-                <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)" }}>📚 מורים</div>
-              </div>
-              <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 9vw, 16px)", lineHeight:1.7 }}>
-                <div>✅ חידונים ללא הגבלה</div>
-                <div>✅ ללא פרסומות</div>
-                <div>✅ העלאת חומר לימוד</div>
-                <div>✅ עד 500 חידוני תלמידים/חודש</div>
-              </div>
-            </div>
-
-            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"13px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8, opacity:0.5 }}>🔜 בקרוב!</button>
-            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"8px", background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", cursor:"pointer" }}>חזרה — נשחק מחר 😊</button>
+            <button onClick={function() { setShowUpsell(false); }} style={{ width:"100%", padding:"8px", marginTop:8, background:"none", border:"none", color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", cursor:"pointer" }}>חזרה — נשחק מחר 😊</button>
           </div>
         </div>
       )}
