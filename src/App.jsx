@@ -416,6 +416,22 @@ async function searchWikiResults(query) {
 }
 
 async function fetchWiki(topic) {
+  // ──── שלב 1: נסה AI-generated content (עשיר ומעניין יותר) ────
+  try {
+    var aiRes = await fetch("/api/topic", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic: topic })
+    });
+    if (aiRes.ok) {
+      var aiData = await aiRes.json();
+      if (aiData.text && aiData.text.length > 500) {
+        return { text: aiData.text, title: aiData.title || topic, lang: "he", source: "ai" };
+      }
+    }
+  } catch(e) { console.log("AI topic fetch failed, falling back to Wikipedia"); }
+
+  // ──── שלב 2: Fallback לויקיפדיה (כמו קודם) ────
   var get = async function(title) {
     var r = await fetch(("https://he.wikipedia.org/w/api.php?action=query&titles=" + encodeURIComponent(title) + "&prop=extracts&explaintext=true&exsectionformat=plain&format=json&origin=*&redirects=1"));
     var d = await r.json();
@@ -456,7 +472,7 @@ async function fetchWiki(topic) {
     var hits = ((await sr.json())?.query?.search) || [];
     for (var h of hits) { var r = await get(h.title); if (r) { direct = r; break; } }
   }
-  if (!direct) throw new Error("לא נמצא מאמר בויקיפדיה על \"" + topic + "\". נסו נושא אחר.");
+  if (!direct) throw new Error("לא נמצא מידע על \"" + topic + "\". נסו נושא אחר.");
 
   // אם המאמר קצר — העשר עם מאמרי "ראו גם"
   var MIN_RICH = 4000;
@@ -569,7 +585,7 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
     + "\n\nרמה: " + ageRule
     + "\nכמות שאלות: " + totalQuestions
     + "\n\nחוקים:"
-    + "\n1. שאלות מהטקסט בלבד — אסור להמציא עובדות, מילים, שמות, או מושגים שלא מופיעים בטקסט. כל מילה בשאלה ובתשובה הנכונה חייבת להתבסס על מה שכתוב בטקסט."
+    + "\n1. שאלות מהטקסט בלבד — כל שאלה חייבת להתבסס על עובדה שמופיעה בטקסט. אסור להמציא עובדות חדשות או לחרוג מהכתוב."
     + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים. לפני שאתה כותב שאלה, ודא שלא דומה לאף שאלה קודמת — לא אותו נושא, עובדה או מושג."
     + "\n2b. אם כבר נוצרו שאלות בקריאות אחרות לאותה קבוצת גיל, חובה להתרחק מהן: לא אותו פרט, לא אותו מושג, לא אותה עובדה בניסוח אחר."
     + "\n3. חשוב מאוד: הטקסט מכיל מספר נושאים וחלקים — חובה לשאול שאלות מכל החלקים! אל תתמקד רק בחלק הראשון. אם יש בטקסט כמה נושאים שונים — חובה לשאול שאלות גם על הנושא השני."
@@ -888,7 +904,7 @@ const calcRawScore = (members, scores) => {
   return Math.round(pct * 100 + timerBonus);
 };
 
-const LOAD_MSGS = ["🔍 מחפש בויקיפדיה...","📖 קורא את המאמר...","🧠 יוצר שאלות...","✨ מותאם לכל גיל...","🎮 כמעט מוכן!"];
+const LOAD_MSGS = ["🔍 מחפש מידע מעניין...","📖 אוסף עובדות...","🧠 יוצר שאלות...","✨ מותאם לכל גיל...","🎮 כמעט מוכן!"];
 // ─── SHARED STYLES ────────────────────────────────────────────────────────────
 const C = {
   card: { background: "rgba(255,255,255,0.055)", backdropFilter: "blur(18px)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 22, padding: "clamp(14px,2vw,28px)", marginBottom: 14 },
@@ -1069,7 +1085,7 @@ function WelcomeScreen({ onDone }) {
         <h1 style={{ fontFamily:"'Rubik',sans-serif", fontWeight:900, color:"#fff", fontSize:"clamp(34px, 20vw, 44px)", margin:"12px 0 2px", letterSpacing:"-1px" }}>
           <span style={{ color:"#fbbf24" }}>Dare</span><span style={{ color:"#fff" }}>2</span><span style={{ color:"#a78bfa" }}>Know</span>
         </h1>
-        <p style={{ color:"#94a3b8", fontSize:"clamp(15px, 11vw, 20px)", fontFamily:"'Heebo',sans-serif", margin:0, fontWeight:400 }}>אתגר ידע מבוסס ויקיפדיה · מי יודע יותר? 🏆</p>
+        <p style={{ color:"#94a3b8", fontSize:"clamp(15px, 11vw, 20px)", fontFamily:"'Heebo',sans-serif", margin:0, fontWeight:400 }}>אתגר ידע לכל המשפחה · מי יודע יותר? 🏆</p>
       </div>
 
       <div style={{ display:"flex", gap:0, marginBottom:16, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:4 }}>
@@ -1430,7 +1446,7 @@ function TopicPicker({ onStart }) {
         </div>
       )}
 
-      <p style={{ color:"#334155", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", margin:"0 0 12px" }}>💡 שאלות מבוססות ויקיפדיה בלבד — מידע מאומת</p>
+      <p style={{ color:"#334155", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", margin:"0 0 12px" }}>💡 שאלות טריוויה מרתקות מבוססות מקורות מהימנים</p>
       {!searchDone && <button onClick={() => topic.trim() && onStart(topic.trim())} disabled={!topic.trim()}
         style={{ ...C.btnP, opacity:topic.trim()?1:0.4, marginBottom:0 }}>🚀 צור חידון!</button>}
     </>
@@ -2196,7 +2212,7 @@ const handleFinish = async (s, totalSeconds) => {
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"1px solid rgba(251,191,36,.3)", borderRadius:24, padding:"clamp(20px,4vw,32px)", maxWidth:380, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(48px, 24vw, 56px)", marginBottom:12 }}>📄</div>
             <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 8px" }}>מאמר קצר</h2>
-            <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", margin:"0 0 20px", lineHeight:1.6 }}>הערך על {shortArticleConfirm.topic} קצר יחסית — ייתכנו חזרות על שאלות.</p>
+            <p style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", margin:"0 0 20px", lineHeight:1.6 }}>המידע על {shortArticleConfirm.topic} מצומצם — ייתכנו חזרות על שאלות.</p>
             <button onClick={function() { shortArticleConfirm.resolve(true); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#7c3aed,#4f46e5)", border:"none", borderRadius:16, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(17px, 12vw, 21px)", cursor:"pointer", boxShadow:"0 4px 24px #7c3aed55", marginBottom:8 }}>🎮 בואו נשחק!</button>
             <button onClick={function() { shortArticleConfirm.resolve(false); }} style={{ width:"100%", padding:"10px", background:"none", border:"1px solid rgba(255,255,255,0.12)", borderRadius:16, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 17px)", cursor:"pointer" }}>🔄 בחירת נושא אחר</button>
           </div>
