@@ -1,4 +1,4 @@
-var CACHE_NAME = "dare2know-v3";
+var CACHE_NAME = "dare2know-v4";
 
 self.addEventListener("install", function(event) {
   self.skipWaiting();
@@ -18,7 +18,8 @@ self.addEventListener("activate", function(event) {
 self.addEventListener("fetch", function(event) {
   if (event.request.method !== "GET") return;
   var url = event.request.url;
-  if (url.includes("/api/") || url.includes("supabase")) return;
+  if (!url.startsWith("http")) return;
+  if (url.includes("/api/") || url.includes("supabase") || url.includes("paypal") || url.includes("googleapis")) return;
 
   event.respondWith(
     fetch(event.request).then(function(response) {
@@ -36,7 +37,7 @@ self.addEventListener("fetch", function(event) {
 });
 
 self.addEventListener("push", function(event) {
-  var data = { title: "Dare2Know 🧠", body: "עדכון חדש מחכה לך!" };
+  var data = { title: "Dare2Know", body: "עדכון חדש מחכה לך!" };
   try { data = event.data.json(); } catch(e) {}
   event.waitUntil(
     self.registration.showNotification(data.title, {
