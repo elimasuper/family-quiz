@@ -311,12 +311,18 @@ async function hasPlayedQuiz(code, familyName, setOnline) {
 async function getLatestWinner() {
   return sbSafe(async function() {
     var r = await sbFetch("weekly_winners?announced=eq.false&order=week_end.desc&limit=1");
-    if (r && r.length > 0) return r[0];
+    if (r && r.length > 0) {
+      // בדוק אם כבר ראינו את זה (localStorage fallback)
+      if (LS.get("seen_weekly_" + r[0].id)) return null;
+      return r[0];
+    }
     return null;
   }, null, null);
 }
 
 async function markWinnerAnnounced(winnerId) {
+  // שמור ב-localStorage מיד (fallback אם DB PATCH נכשל)
+  LS.set("seen_weekly_" + winnerId, true);
   return sbSafe(function() {
     return sbFetch("weekly_winners?id=eq." + winnerId, {
       method: "PATCH",
@@ -1703,14 +1709,32 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
   const [board, setBoard] = useState([]);
   const [monthly, setMonthly] = useState({pts:[],avg:[]});
   const [tab, setTab] = useState("challenge");
+  const [animPct, setAnimPct] = useState(0);
+  const [showBadges, setShowBadges] = useState(false);
   const pct = fp(members, scores);
   // הודעות שמעודדות תמיד לשחק עוד
   var msg, sub, emoji;
-  if (pct === 100)     { emoji = "🏆"; msg = "מושלם!"; sub = "אלופים! בואו ננסה נושא חדש?"; }
+  if (pct === 100)     { emoji = "🏆"; msg = "מושלם!"; sub = "אלופים! אתגרו משפחה אחרת!"; }
   else if (pct >= 85)  { emoji = "🔥"; msg = "כמעט מושלם!"; sub = "עוד קצת ואתם על 100%!"; }
   else if (pct >= 65)  { emoji = "💪"; msg = "יופי של התחלה!"; sub = "שאלות חדשות = הזדמנות לשפר!"; }
   else                 { emoji = "🎯"; msg = "יש מאיפה לטפס!"; sub = "כל סיבוב מלמד משהו חדש — קדימה!"; }
   const badges = calcBadges(scores, members);
+
+  // אנימציית ציון עולה
+  useEffect(function() {
+    var target = pct;
+    var duration = 1200;
+    var startTime = Date.now();
+    var frame = function() {
+      var elapsed = Date.now() - startTime;
+      var progress = Math.min(elapsed / duration, 1);
+      var eased = 1 - Math.pow(1 - progress, 3);
+      setAnimPct(Math.round(eased * target));
+      if (progress < 1) requestAnimationFrame(frame);
+      else setTimeout(function() { setShowBadges(true); }, 300);
+    };
+    requestAnimationFrame(frame);
+  }, [pct]);
 
   useEffect(() => {
     setBoard([]); setMonthly({pts:[],avg:[]});
@@ -1734,21 +1758,48 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
         <p style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", margin:"0 0 6px", fontSize:"clamp(15px, 11vw, 20px)" }}>{sub}</p>
         <p style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", margin:"0 0 14px", fontSize:"clamp(17px, 12vw, 24px)" }}>משפחת {familyName} · {topic}</p>
         <div style={{ background:"rgba(255,255,255,.08)", borderRadius:16, padding:"14px 24px", display:"inline-block" }}>
-          <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{pct}%</div>
+          <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(52px, 26vw, 62px)", lineHeight:1 }}>{animPct}%</div>
           {myRank>0&&<div style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 22px)", marginTop:4 }}>מקום {myRank} מבין {board.length} משפחות</div>}
           {quizTime > 0 && <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", marginTop:4 }}>{"⚡ " + Math.floor(quizTime / 60) + ":" + String(quizTime % 60).padStart(2, "0") + " דקות"}</div>}
         </div>
-        {badges.length > 0 && (
-          <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", marginTop:12 }}>
-            {badges.map((b,i) => (
-              <div key={i} style={{ background:"rgba(251,191,36,.12)", border:"1px solid rgba(251,191,36,.3)", borderRadius:20, padding:"5px 14px", display:"flex", alignItems:"center", gap:5 }}>
-                <span style={{ fontSize:"clamp(16px, 12vw, 20px)" }}>{b.emoji}</span>
-                <span style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 11vw, 17px)" }}>{b.label}</span>
-              </div>
-            ))}
+        {showBadges && badges.length > 0 && (
+          <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", marginTop:14, animation:"slideIn 0.6s ease" }}>
+            {badges.map(function(b, i) {
+              return (
+                <div key={i} style={{ background:"linear-gradient(135deg, rgba(251,191,36,.2), rgba(245,158,11,.1))", border:"2px solid rgba(251,191,36,.5)", borderRadius:20, padding:"6px 16px", display:"flex", alignItems:"center", gap:6, boxShadow:"0 0 12px rgba(251,191,36,.3)" }}>
+                  <span style={{ fontSize:"clamp(18px, 13vw, 22px)" }}>{b.emoji}</span>
+                  <span style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(14px, 11vw, 17px)", fontWeight:700 }}>{b.label}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
+
+      <div style={{ marginBottom:14 }}>
+        {onShare && (
+          <button onClick={onShare} style={{ width:"100%", padding:"16px", background:"linear-gradient(135deg,#16a34a,#15803d)", border:"none", borderRadius:18, color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", cursor:"pointer", boxShadow:"0 6px 24px rgba(22,163,74,0.4)", marginBottom:10 }}>
+            ⚔️ אתגרו משפחה אחרת!
+          </button>
+        )}
+        <button onClick={onSameTopic} style={{ ...C.btnP, marginBottom:8 }}>{pct < 100 ? "🔥 שפרו את הציון — שאלות חדשות!" : "🔄 עוד סיבוב על " + topic}</button>
+        <button onClick={onHome} style={C.btnS}>🎮 נושא אחר</button>
+      </div>
+
+      {beatenBy && (
+        <div style={{ ...C.card, textAlign:"center", background:"linear-gradient(160deg,#1a1540,#1e3a5f)", border:"2px solid rgba(245,158,11,.3)" }}>
+          <div style={{ fontSize:"clamp(32px, 19vw, 40px)", marginBottom:6 }}>🔔</div>
+          <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(19px, 14vw, 25px)" }}>
+            משפחת {beatenBy.family} עקפו אתכם!
+          </div>
+          <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 21px)", marginBottom:12 }}>
+            הם השיגו {beatenBy.score} נקודות. רוצים להחזיר?
+          </div>
+          <button onClick={onRematch} style={{ ...C.btnP, background:"linear-gradient(135deg,#f59e0b,#d97706)" }}>
+            🔥 אתגר חוזר — שאלות חדשות!
+          </button>
+        </div>
+      )}
 
       <div style={C.card}>
         <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(19px, 14vw, 25px)", marginBottom:10 }}>🎖️ גיבורי המשפחה</div>
@@ -1825,13 +1876,6 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
           </button>
         </div>
       )}
-      {code && onShare && (
-        <button onClick={onShare} style={{ ...C.btnP, background:"linear-gradient(135deg,#16a34a,#15803d)", boxShadow:"0 4px 20px #16a34a55" }}>
-          📱 אתגרו משפחה אחרת!
-        </button>
-      )}
-      <button onClick={onSameTopic} style={C.btnP}>{pct < 100 ? "🔥 שפרו את הציון — שאלות חדשות!" : "🔄 עוד סיבוב על " + topic}</button>
-      <button onClick={onHome} style={C.btnS}>🎮 נושא אחר</button>
     </div>
   );
 }
@@ -2222,10 +2266,18 @@ const handleFinish = async (s, totalSeconds) => {
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:1001, display:"flex", alignItems:"center", justifyContent:"center", padding:20, animation:"slideIn .4s ease" }}>
           <div style={{ background:"linear-gradient(160deg,#1a1540,#0f172a)", border:"2px solid rgba(251,191,36,.4)", borderRadius:28, padding:"clamp(24px,5vw,36px)", maxWidth:400, width:"100%", textAlign:"center" }}>
             <div style={{ fontSize:"clamp(64px, 30vw, 80px)", marginBottom:8, animation:"bounce 1.5s ease infinite" }}>🏆</div>
-            <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(24px, 16vw, 32px)", margin:"0 0 6px" }}>מנצחי השבוע!</h2>
-            <p style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 4px" }}>משפחת {weeklyWinner.family_name}</p>
-            <p style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 4px" }}>{weeklyWinner.points} נקודות · {weeklyWinner.games_played} משחקים</p>
-            <p style={{ color:"#64748b", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", margin:"0 0 20px" }}>🎉 כל הכבוד! הלוח התאפס — מתחילים שבוע חדש</p>
+            <h2 style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(24px, 16vw, 32px)", margin:"0 0 6px" }}>סיכום השבוע!</h2>
+            {weeklyWinner.family_name === (family && family.name) ? (
+              <div>
+                <p style={{ color:"#4ade80", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", margin:"0 0 4px" }}>🎉 ניצחתם! מקום ראשון!</p>
+                <p style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 16px" }}>{weeklyWinner.points} נקודות · אלופים!</p>
+              </div>
+            ) : (
+              <div>
+                <p style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", margin:"0 0 4px" }}>מקום ראשון: משפחת {weeklyWinner.family_name}</p>
+                <p style={{ color:"#a78bfa", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(16px, 12vw, 20px)", margin:"0 0 16px" }}>{weeklyWinner.points} נקודות — השבוע תורכם! 💪</p>
+              </div>
+            )}
             <button onClick={function() { markWinnerAnnounced(weeklyWinner.id); setWeeklyWinner(null); }} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#fbbf24,#f59e0b)", border:"none", borderRadius:16, color:"#1a1540", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 22px)", cursor:"pointer", boxShadow:"0 4px 24px #fbbf2455" }}>🎮 בואו נתחיל שבוע חדש!</button>
           </div>
         </div>
