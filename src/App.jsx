@@ -433,11 +433,13 @@ async function fetchWiki(topic) {
     if (aiRes.ok) {
       var aiData = await aiRes.json();
       if (aiData.text && aiData.text.length > 500) {
-        return { text: aiData.text, title: aiData.title || topic, lang: "he", source: "ai", shortArticle: false };
+        return { text: aiData.text, title: aiData.title || topic, lang: "he", source: aiData.source || "ai", shortArticle: false };
       }
-      if (aiData.error) console.log("AI topic error:", aiData.error);
+      console.log("AI topic returned short content:", aiData);
     } else {
-      console.log("AI topic HTTP error:", aiRes.status);
+      var errBody = null;
+      try { errBody = await aiRes.json(); } catch(e2) {}
+      console.log("AI topic HTTP error:", aiRes.status, errBody);
     }
   } catch(e) { console.log("AI topic fetch failed, falling back to Wikipedia"); }
 
@@ -1396,69 +1398,33 @@ function HomeScreen({ family, onPlay, onJoin, onEditFamily, onLogout, onSetOnlin
 
 function TopicPicker({ onStart }) {
   const [topic, setTopic] = useState("");
-  const [results, setResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [searchDone, setSearchDone] = useState(false);
   const quick = [{e:"🦕",t:"דינוזאורים"},{e:"🚀",t:"חלל"},{e:"🦁",t:"אריות"},{e:"🐬",t:"דולפינים"},{e:"🏛️",t:"מצרים העתיקה"},{e:"🌋",t:"הרי געש"},{e:"🐳",t:"לוויתנים"},{e:"🧠",t:"מדע"},{e:"🌍",t:"מדינות העולם"}];
 
-  const doSearch = async () => {
-    if (!topic.trim()) return;
-    setSearching(true); setSearchDone(false); setResults([]);
-    try {
-      const res = await searchWikiResults(topic.trim());
-      setResults(res); setSearchDone(true);
-    } catch { setResults([]); setSearchDone(true); }
-    setSearching(false);
-  };
-
-  const pickQuick = (t) => { setTopic(t); setResults([]); setSearchDone(false); };
+  var go = function() { if (topic.trim()) onStart(topic.trim()); };
 
   return (
     <>
-      <label style={C.lbl}>📚 נושא החידון</label>
-      <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-        <input value={topic} onChange={e=>{ setTopic(e.target.value); setSearchDone(false); setResults([]); }} placeholder="לדוגמה: דינוזאורים, כרמים..."
+      <label style={C.lbl}>📚 על מה תרצו חידון?</label>
+      <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+        <input value={topic} onChange={function(e) { setTopic(e.target.value); }} placeholder="למשל: פסח, כדורגל, דינוזאורים..."
           style={{ ...C.inp, flex:1, marginBottom:0 }}
-          onFocus={e=>e.target.style.borderColor="#a78bfa"} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,.12)"}
-          onKeyDown={e=>e.key==="Enter"&&doSearch()} />
-        <button onClick={doSearch} disabled={!topic.trim()||searching}
-          style={{ background:"rgba(167,139,250,.2)", border:"1px solid #a78bfa66", borderRadius:12, padding:"0 14px", color:"#a78bfa", cursor:"pointer", fontSize:"clamp(15px, 11vw, 20px)", fontFamily:"'Varela Round',sans-serif", whiteSpace:"nowrap" }}>
-          {searching ? "🔍..." : "🔍 חפש"}
-        </button>
+          onFocus={function(e) { e.target.style.borderColor="#a78bfa"; }} onBlur={function(e) { e.target.style.borderColor="rgba(255,255,255,.12)"; }}
+          onKeyDown={function(e) { if (e.key === "Enter") go(); }} />
       </div>
 
-      {searchDone && results.length > 0 && (
-        <div style={{ background:"rgba(255,255,255,.04)", border:"1px solid rgba(167,139,250,.2)", borderRadius:14, marginBottom:12, overflow:"hidden" }}>
-          <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 17px)", padding:"8px 12px", borderBottom:"1px solid rgba(255,255,255,.06)" }}>בחר את המאמר הנכון:</div>
-          {results.map((r,i) => (
-            <button key={i} onClick={() => { setTopic(r.title); setResults([]); setSearchDone(false); onStart(r.title); }}
-              style={{ width:"100%", background:"transparent", border:"none", borderBottom:i<results.length-1?"1px solid rgba(255,255,255,.05)":"none", padding:"10px 12px", cursor:"pointer", textAlign:"right", transition:"background .15s" }}
-              onMouseEnter={e=>e.currentTarget.style.background="rgba(167,139,250,.1)"}
-              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(15px, 11vw, 19px)" }}>{r.title}</div>
-              {r.snippet && <div style={{ color:"#475569", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(12px, 9vw, 15px)", marginTop:2 }}>{r.snippet}...</div>}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginTop:4, marginBottom:12 }}>
+        {quick.map(function(q) {
+          return (
+            <button key={q.t} onClick={function() { setTopic(q.t); onStart(q.t); }} style={{ background:topic===q.t?"rgba(167,139,250,.25)":"rgba(255,255,255,.05)", border:("1px solid " + (topic===q.t ? "#a78bfa" : "rgba(255,255,255,.1)")), borderRadius:12, padding:"9px 4px", cursor:"pointer", color:"#fff", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", textAlign:"center", transition:"all .2s" }}>
+              <div style={{ fontSize:"clamp(20px, 14vw, 26px)", marginBottom:2 }}>{q.e}</div>{q.t}
             </button>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
-      {searchDone && results.length === 0 && (
-        <div style={{ color:"#f87171", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 11vw, 18px)", marginBottom:10 }}>לא נמצאו תוצאות — נסה נושא אחר</div>
-      )}
-
-      {!searchDone && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginTop:4, marginBottom:10 }}>
-          {quick.map(({e,t}) => (
-            <button key={t} onClick={() => { pickQuick(t); onStart(t); }} style={{ background:topic===t?"rgba(167,139,250,.25)":"rgba(255,255,255,.05)", border:("1px solid " + (topic===t ? "#a78bfa" : "rgba(255,255,255,.1)")), borderRadius:12, padding:"9px 4px", cursor:"pointer", color:"#fff", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", textAlign:"center", transition:"all .2s" }}>
-              <div style={{ fontSize:"clamp(20px, 14vw, 26px)", marginBottom:2 }}>{e}</div>{t}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <p style={{ color:"#334155", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", margin:"0 0 12px" }}>💡 שאלות טריוויה מרתקות מבוססות מקורות מהימנים</p>
-      {!searchDone && <button onClick={() => topic.trim() && onStart(topic.trim())} disabled={!topic.trim()}
-        style={{ ...C.btnP, opacity:topic.trim()?1:0.4, marginBottom:0 }}>🚀 צור חידון!</button>}
+      <p style={{ color:"#334155", fontSize:"clamp(15px, 11vw, 21px)", fontFamily:"'Varela Round',sans-serif", margin:"0 0 12px" }}>💡 הקלידו כל נושא שמעניין אתכם — אנחנו ניצור חידון מותאם!</p>
+      <button onClick={go} disabled={!topic.trim()}
+        style={{ ...C.btnP, opacity:topic.trim()?1:0.4, marginBottom:0 }}>🚀 צור חידון!</button>
     </>
   );
 }

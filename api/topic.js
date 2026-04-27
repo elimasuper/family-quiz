@@ -26,9 +26,10 @@ async function callClaude(apiKey, topic, useWebSearch) {
   var data = await response.json();
 
   if (data.error) {
-    throw new Error("Claude API error: " + JSON.stringify(data.error));
+    throw new Error(JSON.stringify(data.error));
   }
 
+  // handle stop_reason = "end_turn" with tool results mixed in
   var aiText = "";
   if (data.content && data.content.length > 0) {
     for (var i = 0; i < data.content.length; i++) {
@@ -48,27 +49,39 @@ export default async function handler(req) {
   try {
     var body = await req.json();
     var topic = body.topic || "";
-    if (!topic) return new Response(JSON.stringify({ error: "missing topic" }), { status: 400 });
+    if (!topic) return new Response(JSON.stringify({ error: "missing topic" }), { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
 
     var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+    if (!ANTHROPIC_KEY) {
+      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    }
+
     var aiText = "";
     var source = "ai";
+    var debugInfo = {};
 
     // שלב 1: נסה עם web search
     try {
       aiText = await callClaude(ANTHROPIC_KEY, topic, true);
       source = "ai+web";
+      debugInfo.webSearch = "success";
+      debugInfo.webSearchLength = aiText ? aiText.length : 0;
     } catch(e) {
-      console.log("Web search failed, trying without:", e.message);
+      debugInfo.webSearch = "failed";
+      debugInfo.webSearchError = e.message;
     }
 
-    // שלב 2: אם web search נכשל או החזיר תוכן קצר, נסה בלעדיו
+    // שלב 2: אם web search נכשל או החזיר תוכן קצר — נסה בלעדיו
     if (!aiText || aiText.length < 300) {
       try {
         aiText = await callClaude(ANTHROPIC_KEY, topic, false);
         source = "ai";
+        debugInfo.aiFallback = "success";
+        debugInfo.aiFallbackLength = aiText ? aiText.length : 0;
       } catch(e2) {
-        return new Response(JSON.stringify({ error: "Claude error: " + e2.message }), {
+        debugInfo.aiFallback = "failed";
+        debugInfo.aiFallbackError = e2.message;
+        return new Response(JSON.stringify({ error: "Failed to generate content", debug: debugInfo }), {
           status: 500,
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
         });
@@ -76,18 +89,18 @@ export default async function handler(req) {
     }
 
     if (!aiText || aiText.length < 300) {
-      return new Response(JSON.stringify({ error: "תוכן קצר מדי על " + topic, length: aiText ? aiText.length : 0 }), {
+      return new Response(JSON.stringify({ error: "Content too short", length: aiText ? aiText.length : 0, debug: debugInfo }), {
         status: 400,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
 
-    return new Response(JSON.stringify({ text: aiText, title: topic, source: source }), {
+    return new Response(JSON.stringify({ text: aiText, title: topic, source: source, debug: debugInfo }), {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
 
   } catch(e) {
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: e.message, stack: e.stack }), {
       status: 500,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
