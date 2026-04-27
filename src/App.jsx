@@ -355,8 +355,9 @@ function calcBadges(scores, members, isChampion=false, streak=0) {
   if (pct === 100) badges.push({ emoji:"🎯", label:"מושלם!" });
   if (pct >= 90)  badges.push({ emoji:"⭐", label:"מצוין" });
   if (isChampion) badges.push({ emoji:"👑", label:"אלוף" });
-  if (streak >= 5) badges.push({ emoji:"🔥", label:"רצף " + streak + " ימים" });
-  else if (streak >= 3) badges.push({ emoji:"🔥", label:"רצף " + streak });
+  if (streak >= 5) badges.push({ emoji:"🔥", label:"רצף " + streak + " ימים!" });
+  else if (streak >= 3) badges.push({ emoji:"🔥", label:"רצף " + streak + " ימים" });
+  else if (streak >= 2) badges.push({ emoji:"🔥", label:"יום שני ברצף!" });
   const timerMembers = validMembers.filter(m => ag(m.age).timer > 0);
   if (timerMembers.length) {
     const avgSecs = timerMembers.reduce((s,m) => s + (scores[m.name]?.timerSum||0) / Math.max(scores[m.name]?.timerCount||1,1), 0) / timerMembers.length;
@@ -738,7 +739,7 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
       var kWords = getQWords(existing[j]);
       var shared = 0;
       qWords.forEach(function(w) { if (kWords.indexOf(w) !== -1) shared++; });
-      if (qWords.length > 0 && shared / qWords.length >= 0.55) return true;
+      if (qWords.length > 0 && shared / qWords.length >= 0.4) return true;
     }
     return false;
   };
@@ -865,7 +866,7 @@ async function validateQuestions(quizData, wikiText, topicTitle) {
       var shared = 0;
       qWords[i].forEach(function(w) { if (qWords[j].indexOf(w) !== -1) shared++; });
       var overlap = shared / Math.max(1, Math.min(qWords[i].length, qWords[j].length));
-      if (overlap >= 0.6) { dupeIndices.add(j); continue; }
+      if (overlap >= 0.4) { dupeIndices.add(j); continue; }
       // בדיקה 3: 2+ ישויות מפתח משותפות (לא כולל שם הנושא)
       var sharedE = 0;
       qEntities[i].forEach(function(e) { if (qEntities[j].indexOf(e) !== -1) sharedE++; });
@@ -1564,12 +1565,7 @@ function QuizScreen({ quizData, members, onFinish }) {
       onFinish(scores, totalSeconds);
     }
   }, [finished]);
-  if (finished) return (
-    <div style={{ textAlign:"center", padding:"80px 20px" }}>
-      <div style={{ fontSize:"clamp(56px, 28vw, 67px)", animation:"spin 2s linear infinite", display:"inline-block" }}>🏆</div>
-      <div style={{ color:"#fff", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(22px, 15vw, 28px)", marginTop:16 }}>מחשב תוצאות...</div>
-    </div>
-  );
+  if (finished) return null;
   const { member, question } = turns[ti];
   const g = ag(member.age);
   const progress = Math.round(ti / turns.length * 100);
@@ -1660,12 +1656,7 @@ function QuizScreen({ quizData, members, onFinish }) {
         )}
       </div>
 
-      {done && ti+1>=turns.length && (
-        <button onClick={next} style={{ ...C.btnP, background:("linear-gradient(135deg," + g.color + "," + g.color + "99)"), color:"#000", animation:"slideIn .3s ease" }}
-          onMouseEnter={e=>e.currentTarget.style.transform="scale(1.02)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
-          🏆 לתוצאות!
-        </button>
-      )}
+      {done && ti+1>=turns.length && null}
     </div>
   );
 }
@@ -1696,7 +1687,7 @@ function ShareScreen({ code, topic, familyName, pct, onContinue }) {
         📱 שליחה בוואטסאפ
       </a>
       <button onClick={copy} style={{ ...C.btnS, color:copied?"#4ade80":"#94a3b8" }}>{copied?"✅ הועתק!":"📋 העתק הודעה"}</button>
-      <button onClick={onContinue} style={C.btnP}>📊 לתוצאות</button>
+      <button onClick={onContinue} style={C.btnP}>🏆 לתוצאות המלאות!</button>
     </div>
   );
 }
@@ -1721,7 +1712,19 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
   else if (pct >= 85)  { emoji = "🔥"; msg = "כמעט מושלם!"; sub = "עוד קצת ואתם על 100%!"; }
   else if (pct >= 65)  { emoji = "💪"; msg = "יופי של התחלה!"; sub = "שאלות חדשות = הזדמנות לשפר!"; }
   else                 { emoji = "🎯"; msg = "יש מאיפה לטפס!"; sub = "כל סיבוב מלמד משהו חדש — קדימה!"; }
-  const badges = calcBadges(scores, members);
+  const [streakCount, setStreakCount] = useState(0);
+  const badges = calcBadges(scores, members, false, streakCount);
+
+  // טען streak אמיתי מ-DB
+  useEffect(function() {
+    if (familyName) {
+      sbSafe(function() {
+        return sbFetch("family_scores?family_name=eq." + encodeURIComponent(familyName) + "&select=streak");
+      }, null, null).then(function(r) {
+        if (r && r.length > 0) setStreakCount(r[0].streak || 0);
+      });
+    }
+  }, [familyName]);
 
   // אנימציית ציון עולה
   useEffect(function() {
@@ -1862,21 +1865,6 @@ function ResultsScreen({ scores, members, familyName, topic, code, creatorPct, q
             });
           })()}
           {(tab==="challenge"?board:tab==="mpts"?monthly.pts:monthly.avg).length===0&&<div style={{ color:"#334155", textAlign:"center", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(17px, 12vw, 24px)", padding:"12px 0" }}>אתם הראשונים! 🎉</div>}
-        </div>
-      )}
-
-      {beatenBy && onRematch && (
-        <div style={{ ...C.card, background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.25)", textAlign:"center", marginBottom:14 }}>
-          <div style={{ fontSize:"clamp(32px, 19vw, 40px)", marginBottom:6 }}>⚔️</div>
-          <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(20px, 14vw, 26px)", marginBottom:4 }}>
-            משפחת {beatenBy.name} עקפה אותכם!
-          </div>
-          <div style={{ color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(15px, 11vw, 21px)", marginBottom:12 }}>
-            הם השיגו {beatenBy.score} נקודות. רוצים להחזיר?
-          </div>
-          <button onClick={onRematch} style={{ ...C.btnP, background:"linear-gradient(135deg,#f59e0b,#d97706)" }}>
-            🔥 אתגר חוזר — שאלות חדשות!
-          </button>
         </div>
       )}
     </div>
