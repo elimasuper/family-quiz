@@ -812,8 +812,9 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     });
     Object.keys(fillGroups).forEach(function(k) {
       fillPromises.push(
-        generateQuestionsForGroup(wikiSlice, groups[k], Math.min(fillGroups[k], MAX_Q_PER_CALL), usedQ, 99).then(function(questions) {
-          questions.forEach(function(q) { groupPools[k] = (groupPools[k] || []).concat([q]); });
+        generateQuestionsForGroup(wikiSlice, groups[k], Math.min(fillGroups[k], MAX_Q_PER_CALL), usedQ, 99).then(function(result) {
+          var qs = result.questions || result;
+          qs.forEach(function(q) { groupPools[k] = (groupPools[k] || []).concat([q]); });
         })
       );
     });
