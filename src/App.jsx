@@ -510,7 +510,7 @@ async function callHaiku(prompt, maxRetries) {
   var lastError = null;
   for (var attempt = 0; attempt <= retries; attempt++) {
     try {
-      var res = await fetch("/api/claude", {
+      var res = await fetch("/api/gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4096, messages: [{ role: "user", content: prompt }] }),

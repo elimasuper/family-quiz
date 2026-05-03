@@ -1,106 +1,79 @@
 export const config = { runtime: "edge" };
 
-async function callClaude(apiKey, topic, useWebSearch) {
-  var tools = useWebSearch ? [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }] : [];
-  var prompt = useWebSearch
-    ? "חפש באינטרנט מידע על הנושא: \"" + topic + "\"\n\nואז כתוב סקירה מקיפה ומעניינת בעברית (2000-3000 מילים) שמתאימה לחידון טריוויה.\n\nכללים:\n1. חפש קודם באינטרנט כדי למצוא עובדות מעניינות.\n2. התמקד במה שמעניין אנשים — לא בפרטים אנציקלופדיים יבשים.\n3. כלול: היסטוריה מרתקת, דמויות מפתח, מספרים מפתיעים, קשרים לתרבות פופולרית, עובדות מפתיעות.\n4. אם הנושא קשור לישראל או ליהדות — הרחב על ההיבטים הישראליים.\n5. כתוב טקסט רציף בלבד, ללא כותרות, ללא Markdown, ללא סעיפים ממוספרים.\n6. רק עובדות מאומתות מהחיפוש! אל תמציא."
-    : "כתוב סקירה מקיפה ומעניינת בעברית על הנושא: \"" + topic + "\".\n\nכללים:\n1. כתוב 2000-3000 מילים.\n2. התמקד בעובדות מעניינות, סיפורים מפתיעים, שיאים, ומידע שרוב האנשים לא יודעים.\n3. כלול: היסטוריה, אנשים חשובים, מספרים ונתונים מעניינים, אנקדוטות, עובדות מפתיעות, קשרים לתרבות הפופולרית.\n4. אל תכתוב בסגנון אנציקלופדי יבש — כתוב בסגנון מעניין ומושך שמתאים לחידון טריוויה.\n5. רק עובדות אמיתיות ומוכחות! אסור להמציא.\n6. אם הנושא קשור לישראל או ליהדות — הרחב במיוחד על ההיבטים הישראליים.\n7. כתוב טקסט רציף בלבד, ללא כותרות, ללא סעיפים ממוספרים, ללא Markdown.";
-
-  var bodyObj = {
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 4000,
-    messages: [{ role: "user", content: prompt }]
-  };
-  if (tools.length > 0) bodyObj.tools = tools;
-
-  var response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify(bodyObj)
-  });
-
-  var data = await response.json();
-
-  if (data.error) {
-    throw new Error(JSON.stringify(data.error));
-  }
-
-  // handle stop_reason = "end_turn" with tool results mixed in
-  var aiText = "";
-  if (data.content && data.content.length > 0) {
-    for (var i = 0; i < data.content.length; i++) {
-      if (data.content[i].type === "text") {
-        aiText += data.content[i].text;
-      }
-    }
-  }
-  return aiText;
-}
-
 export default async function handler(req) {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST", "Access-Control-Allow-Headers": "Content-Type" } });
   }
 
   try {
-    var body = await req.json();
-    var topic = body.topic || "";
+    const body = await req.json();
+    const topic = body.topic || "";
     if (!topic) return new Response(JSON.stringify({ error: "missing topic" }), { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
 
-    var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-    if (!ANTHROPIC_KEY) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    const GEMINI_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_KEY) {
+      return new Response(JSON.stringify({ error: "GEMINI_API_KEY not configured" }), { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     }
 
-    var aiText = "";
-    var source = "ai";
-    var debugInfo = {};
+    const prompt = "כתוב סקירה מקיפה ומעניינת בעברית על הנושא: \"" + topic + "\".\n\nכללים:\n1. כתוב 2000-3000 מילים.\n2. התמקד בעובדות מעניינות, סיפורים מפתיעים, שיאים, ומידע שרוב האנשים לא יודעים.\n3. כלול: היסטוריה, אנשים חשובים, מספרים ונתונים מעניינים, אנקדוטות, עובדות מפתיעות, קשרים לתרבות הפופולרית.\n4. אל תכתוב בסגנון אנציקלופדי יבש — כתוב בסגנון מעניין ומושך שמתאים לחידון טריוויה.\n5. רק עובדות אמיתיות ומוכחות!\n6. אם הנושא קשור לישראל או ליהדות — הרחב במיוחד על ההיבטים הישראליים.\n7. כתוב טקסט רציף בלבד, ללא כותרות, ללא סעיפים ממוספרים, ללא Markdown.";
 
-    // שלב 1: נסה עם web search
-    try {
-      aiText = await callClaude(ANTHROPIC_KEY, topic, true);
-      source = "ai+web";
-      debugInfo.webSearch = "success";
-      debugInfo.webSearchLength = aiText ? aiText.length : 0;
-    } catch(e) {
-      debugInfo.webSearch = "failed";
-      debugInfo.webSearchError = e.message;
-    }
-
-    // שלב 2: אם web search נכשל או החזיר תוכן קצר — נסה בלעדיו
-    if (!aiText || aiText.length < 300) {
-      try {
-        aiText = await callClaude(ANTHROPIC_KEY, topic, false);
-        source = "ai";
-        debugInfo.aiFallback = "success";
-        debugInfo.aiFallbackLength = aiText ? aiText.length : 0;
-      } catch(e2) {
-        debugInfo.aiFallback = "failed";
-        debugInfo.aiFallbackError = e2.message;
-        return new Response(JSON.stringify({ error: "Failed to generate content", debug: debugInfo }), {
-          status: 500,
-          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-        });
+    // Gemini with Google Search grounding
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + GEMINI_KEY,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          tools: [{ google_search: {} }],
+          generationConfig: {
+            maxOutputTokens: 4000,
+            temperature: 0.7,
+          }
+        }),
       }
+    );
+
+    const data = await response.json();
+
+    if (data.error) {
+      // Fallback without search
+      const response2 = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + GEMINI_KEY,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 4000, temperature: 0.7 }
+          }),
+        }
+      );
+      const data2 = await response2.json();
+      const text2 = data2.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      if (text2.length < 300) {
+        return new Response(JSON.stringify({ error: "content too short", detail: data2.error }), { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+      }
+      return new Response(JSON.stringify({ text: text2, title: topic, source: "gemini" }), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      });
     }
 
+    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
     if (!aiText || aiText.length < 300) {
-      return new Response(JSON.stringify({ error: "Content too short", length: aiText ? aiText.length : 0, debug: debugInfo }), {
+      return new Response(JSON.stringify({ error: "content too short", length: aiText.length }), {
         status: 400,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
 
-    return new Response(JSON.stringify({ text: aiText, title: topic, source: source, debug: debugInfo }), {
+    return new Response(JSON.stringify({ text: aiText, title: topic, source: "gemini+search" }), {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
 
   } catch(e) {
-    return new Response(JSON.stringify({ error: e.message, stack: e.stack }), {
+    return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
