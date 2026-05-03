@@ -432,14 +432,18 @@ async function fetchWiki(topic) {
     });
     if (aiRes.ok) {
       var aiData = await aiRes.json();
-      if (aiData.text && aiData.text.length > 500) {
+      if (aiData.text && aiData.text.length > 200) {
+        // שלח את הטקסט שGemini הכין — הוא כבר עשיר ומעניין
         return { text: aiData.text, title: aiData.title || topic, lang: "he", source: aiData.source || "ai", shortArticle: false };
       }
-      console.log("AI topic returned short content:", aiData);
+      // /api/topic החזיר תוכן קצר — תן לGemini להשתמש בידע שלו ישירות
+      return { text: topic, title: topic, lang: "he", source: "direct", shortArticle: false };
     } else {
       var errBody = null;
       try { errBody = await aiRes.json(); } catch(e2) {}
       console.log("AI topic HTTP error:", aiRes.status, errBody);
+      // אם topic נכשל — תן לGemini להשתמש בידע שלו ישירות
+      return { text: topic, title: topic, lang: "he", source: "direct", shortArticle: false };
     }
   } catch(e) { console.log("AI topic fetch failed, falling back to Wikipedia"); }
 
@@ -592,22 +596,26 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
       usedBlock = "\n\nשאלות שכבר נשאלו (העדף שאלות חדשות, מותר לחזור על 1-2 לחיזוק):\n" + forbidden.slice(-15).map(function(q,i) { return (i+1) + ". " + q; }).join("\n");
     }
   }
-  var example = '{"questions":[{"question":"...","emoji":"🦕","answers":["נכונה","סבירה","סבירה","מצחיקה"],"correct_index":0}]}';
-  var prompt = "טקסט:\n" + wikiText + usedBlock
+  var example = '{"resolved_topic":"שם הנושא המדויק שהחלטת עליו","questions":[{"question":"...","emoji":"🦕","answers":["נכונה","סבירה","סבירה","מצחיקה"],"correct_index":0}]}';
+  var topicContext = wikiText && wikiText.length > 200
+    ? "מידע על הנושא:\n" + wikiText.slice(0, 3000) + usedBlock
+    : "נושא: " + (wikiText || "ידע כללי") + usedBlock;
+  var prompt = topicContext
     + "\n\nרמה: " + ageRule
     + "\nכמות שאלות: " + totalQuestions
     + "\n\nחוקים:"
-    + "\n1. שאלות מהטקסט בלבד — כל שאלה חייבת להתבסס על עובדה שמופיעה בטקסט. אסור להמציא עובדות חדשות או לחרוג מהכתוב."
-    + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על נושאים שונים. לפני שאתה כותב שאלה, ודא שלא דומה לאף שאלה קודמת — לא אותו נושא, עובדה או מושג."
-    + "\n2b. אם כבר נוצרו שאלות בקריאות אחרות לאותה קבוצת גיל, חובה להתרחק מהן: לא אותו פרט, לא אותו מושג, לא אותה עובדה בניסוח אחר."
-    + "\n3. חשוב מאוד: הטקסט מכיל מספר נושאים וחלקים — חובה לשאול שאלות מכל החלקים! אל תתמקד רק בחלק הראשון. אם יש בטקסט כמה נושאים שונים — חובה לשאול שאלות גם על הנושא השני."
+    + "\n1. קבע תחילה על איזה נושא מדויק אתה מייצר שאלות (למשל: אם הנושא הוא 'כוס' — החלט אם הכוונה לכוס שתייה, גביע כדורגל וכו') והחזר אותו ב-resolved_topic."
+    + "\n2. צור שאלות טריוויה מעניינות ומגוונות על הנושא. השתמש בידע שלך על הנושא כדי לייצר עובדות מדויקות ומרתקות."
+    + "\n2. קריטי: כל " + totalQuestions + " השאלות חייבות להיות על היבטים שונים של הנושא — היסטוריה, מספרים, אנשים, אירועים, שיאים, עובדות מפתיעות."
+    + "\n2b. אם כבר נוצרו שאלות בקריאות קודמות, חובה להתרחק מהן — נושאים אחרים, עובדות אחרות."
+    + "\n3. פזר שאלות על כל ההיבטים של הנושא — אל תתמקד רק בדבר אחד."
     + "\n4. אסור שהתשובה הנכונה תופיע בגוף השאלה."
     + "\n5. עברית תקנית — מדריך דקדוק קריטי:"
-    + "\n   א. מבנה משפט: כל שאלה = משפט אחד שלם עם נושא + נשוא + משלים. סדר: [מילת שאלה] [נשוא] [נושא] [משלים]?"
-    + "\n   ב. מילות שאלה נכונות: 'מי' (לאדם), 'מה' (לדבר), 'כמה' (למספר), 'מתי' (לזמן), 'היכן/איפה' (למקום), 'באיזו שנה' (לשנה), 'מהו/מהי' (להגדרה), 'איזה/איזו' (לבחירה)."
-    + "\n   ג. התאמת מין: 'איזה' (זכר) / 'איזו' (נקבה). 'מהו' (זכר) / 'מהי' (נקבה). 'נבנה' (זכר) / 'נבנתה' (נקבה). חובה להתאים לנושא המשפט."
-    + "\n   ד. אסור לערבב שני נושאים במשפט אחד. שגוי: 'איזה מנהל קנה ג׳ורדן את הקבוצה'. נכון: 'מי רכש את קבוצת הבולס בשנת 2010?'"
-    + "\n   ה. אסור שאלות עם כפל מידע סותר. שגוי: 'באיזה חודש ביולי'. נכון: 'מתי דחה בית המשפט את התביעה?'"
+    + "\n   א. מבנה משפט: כל שאלה = משפט אחד שלם עם נושא + נשוא + משלים."
+    + "\n   ב. מילות שאלה: 'מי' (לאדם), 'מה' (לדבר), 'כמה' (למספר), 'מתי' (לזמן), 'היכן' (למקום), 'באיזו שנה' (לשנה)."
+    + "\n   ג. התאמת מין: 'איזה' (זכר) / 'איזו' (נקבה). 'מהו' (זכר) / 'מהי' (נקבה)."
+    + "\n   ד. אסור לערבב שני נושאים. שגוי: 'איזה מנהל קנה ג׳ורדן את הקבוצה'. נכון: 'מי רכש את קבוצת הבולס?'"
+    + "\n   ה. כל מילה חייבת להיות שלמה. תשובות ספציפיות ומדויקות."
     + "\n   ו. כל מילה חייבת להיות שלמה. לא 'באיז' אלא 'באיזה'. לא 'מאד' אלא 'מאוד'. לא 'אליפו' אלא 'אליפות'. בדוק כל מילה!"
     + "\n   ז. תשובות ספציפיות: לא 'עץ איכותי' אלא 'עץ ארז'. לא 'מקום חם' אלא 'מצרים'. השתמש בשמות ובמונחים מדויקים מהטקסט."
     + "\n   ח. פועל בהתאם לזמן: אם מדברים על העבר, השתמש בעבר ('הומצא', 'נוסד', 'שימש'). אם על ההווה, השתמש בהווה."
@@ -638,12 +646,13 @@ async function generateQuestionsForGroup(wikiText, groupMembers, totalQuestions,
     + "\n11. JSON בלבד:\n" + example;
 
   var parsed = await callHaiku(prompt);
+  var resolvedTopic = parsed.resolved_topic || null;
   var questions = (parsed.questions || []).map(function(q) {
     var correct = q.answers[q.correct_index];
     var shuffled = [].concat(q.answers).sort(function() { return Math.random() - 0.5; });
     return { question: q.question, emoji: q.emoji, answers: shuffled, correct_index: shuffled.indexOf(correct) };
   });
-  return questions;
+  return { questions: questions, resolvedTopic: resolvedTopic };
 }
 
 async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
@@ -702,26 +711,29 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   var MAX_Q_PER_CALL = 10;
   var groupResults = {};
   var allPromises = [];
+  var resolvedTopicRef = { value: null };
 
   Object.keys(groups).forEach(function(k) {
     var groupMembers = groups[k];
     var g = ag(groupMembers[0].age);
     var needed = groupMembers.length * g.qCount;
-    // מינימום 10 שאלות לחידון — אם שחקן יחיד או זוג, בקש יותר
     if (members.length <= 2) needed = Math.max(needed, 12);
-    // בקש פי 2 שאלות כ-buffer — הסינון מוחק חלק
     var totalQ = Math.ceil(needed * 2) + Math.min(4, groupMembers.length);
     var minQ = groupMembers.length * 3;
     totalQ = Math.max(minQ, Math.min(totalQ, maxQuestionsFromText));
     groupResults[k] = [];
 
-    // חלק לקריאות של עד MAX_Q_PER_CALL
     var remaining = totalQ;
     while (remaining > 0) {
       var batchSize = Math.min(remaining, MAX_Q_PER_CALL);
       remaining -= batchSize;
       var p = generateQuestionsForGroup(wikiSlice, groupMembers, batchSize, usedQ, (groupResults[k].length / MAX_Q_PER_CALL) + 1).then(function(kk) {
-        return function(questions) { groupResults[kk] = groupResults[kk].concat(questions); };
+        return function(result) {
+          groupResults[kk] = groupResults[kk].concat(result.questions || result);
+          if (!resolvedTopicRef.value && result.resolvedTopic) {
+            resolvedTopicRef.value = result.resolvedTopic;
+          }
+        };
       }(k));
       allPromises.push(p);
     }
@@ -833,7 +845,7 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
     var allQ = results.flatMap(function(r) { return (r && r.questions) ? r.questions : []; });
     addQHistory(topic, allQ);
   }
-  return { members: results };
+  return { members: results, resolvedTopic: resolvedTopicRef.value };
 }
 
 // ─── QUESTION VALIDATION ─────────────────────────────────────────────────────
@@ -2010,18 +2022,18 @@ function AppInner() {
     return true;
   };
 
+  const [resolvedTopic, setResolvedTopic] = useState(null);
+
   const handlePlay = async (t) => {
     if (!checkDailyLimit()) return;
-    setTopic(t); setIsChallenger(false); setCreatorPct(null);
+    setTopic(t); setIsChallenger(false); setCreatorPct(null); setResolvedTopic(null);
     const stop = startLoad();
     try {
       const validated = await buildQuiz(t, family.members);
       incDailyCountDB(family.name);
-      // עדכן את הנושא לפי מה ש-Gemini החליט
-      if (validated.actualTopic && validated.actualTopic !== t) {
-        setTopic(validated.actualTopic);
-        setLoadMsg("📖 יוצר חידון על: " + validated.actualTopic);
-      }
+      var actual = validated.resolvedTopic || validated.actualTopic || t;
+      setTopic(actual);
+      setResolvedTopic(actual);
       stop(); setQuizData(validated); setScreen("quiz");
     } catch(e) {
       stop();
@@ -2163,7 +2175,24 @@ const handleFinish = async (s, totalSeconds) => {
               <button onClick={() => setScreen("home")} style={C.btnS}>🎮 בחרו נושא אחר</button>
             </div>
           )}
-          {screen==="quiz"         && quizData && family && <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />}
+          {screen==="quiz"         && quizData && family && (
+            <>
+              {resolvedTopic && resolvedTopic !== topic && (
+                <div style={{ ...C.card, textAlign:"center", marginBottom:14, background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.3)" }}>
+                  <div style={{ color:"#c4b5fd", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(14px, 10vw, 18px)", marginBottom:8 }}>
+                    🤔 פירשנו את הנושא כ:
+                  </div>
+                  <div style={{ color:"#fbbf24", fontFamily:"'Rubik',sans-serif", fontSize:"clamp(18px, 13vw, 24px)", marginBottom:12 }}>
+                    {resolvedTopic}
+                  </div>
+                  <button onClick={function() { setResolvedTopic(null); setScreen("home"); }} style={{ background:"none", border:"1px solid rgba(255,255,255,.2)", borderRadius:12, color:"#94a3b8", fontFamily:"'Varela Round',sans-serif", fontSize:"clamp(13px, 10vw, 16px)", padding:"6px 16px", cursor:"pointer" }}>
+                    🔄 לא זה — בחר נושא אחר
+                  </button>
+                </div>
+              )}
+              <QuizScreen quizData={quizData} members={family.members} onFinish={handleFinish} />
+            </>
+          )}
           {screen==="share"        && <ShareScreen code={code} topic={topic} familyName={family?.name} pct={pct} onContinue={()=>setScreen("results")} />}
           {screen==="results"      && <ResultsScreen scores={scores} members={family?.members||[]} familyName={family?.name} topic={topic} code={code} creatorPct={creatorPct} quizTime={quizTime} onHome={()=>setScreen("home")} onSameTopic={code ? handleRetryChallenge : handleSameTopic} onSetOnline={setSbOnline} onShare={()=>setScreen("share")} beatenBy={beatenBy} onRematch={handleRematch} />}
         </div>
