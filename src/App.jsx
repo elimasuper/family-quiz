@@ -770,7 +770,11 @@ async function generateQuestions(wikiText, wikiLang, members, seed, topic) {
   });
 
   // חלק round-robin — כל משתתף מקבל שאלה בתור
-  var memberQueues = members.map(function(m) { return { name: m.name, level: levelKey(m), questions: [], needed: ag(m.age).qCount }; });
+  var memberQueues = members.map(function(m) {
+    var baseCount = ag(m.age).qCount;
+    var boostedCount = members.length <= 2 ? Math.max(baseCount, Math.ceil(10 / members.length)) : baseCount;
+    return { name: m.name, level: levelKey(m), questions: [], needed: boostedCount };
+  });
   var groupPools = {};
   Object.keys(groupResults).forEach(function(k) { groupPools[k] = [].concat(groupResults[k]); });
 
@@ -1406,7 +1410,7 @@ function TopicPicker({ onStart }) {
     <>
       <label style={C.lbl}>📚 על מה תרצו חידון?</label>
       <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-        <input value={topic} onChange={function(e) { setTopic(e.target.value); }} placeholder="למשל: פסח, כדורגל, דינוזאורים..."
+        <input value={topic} onChange={function(e) { setTopic(e.target.value); }} placeholder="למשל: פסח, כדורגל ישראלי, דינוזאורים..."
           style={{ ...C.inp, flex:1, marginBottom:0 }}
           onFocus={function(e) { e.target.style.borderColor="#a78bfa"; }} onBlur={function(e) { e.target.style.borderColor="rgba(255,255,255,.12)"; }}
           onKeyDown={function(e) { if (e.key === "Enter") go(); }} />
@@ -1990,7 +1994,7 @@ function AppInner() {
     }
     const seed = Math.random().toString(36).slice(2,8);
     const data = await generateQuestions(wiki.text, wiki.lang, mems, seed, wiki.title);
-    return data;
+    return { ...data, actualTopic: wiki.title };
   };
 
   const [showUpsell, setShowUpsell] = useState(false);
@@ -2013,6 +2017,11 @@ function AppInner() {
     try {
       const validated = await buildQuiz(t, family.members);
       incDailyCountDB(family.name);
+      // עדכן את הנושא לפי מה ש-Gemini החליט
+      if (validated.actualTopic && validated.actualTopic !== t) {
+        setTopic(validated.actualTopic);
+        setLoadMsg("📖 יוצר חידון על: " + validated.actualTopic);
+      }
       stop(); setQuizData(validated); setScreen("quiz");
     } catch(e) {
       stop();
